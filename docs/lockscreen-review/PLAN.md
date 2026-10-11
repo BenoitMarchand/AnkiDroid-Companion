@@ -2,7 +2,7 @@
 
 Feature: while the phone is locked, the lock screen shows the current due card, and a lock-screen notification shows the answer with the 4 review buttons. Once unlocked, the lock-screen card disappears, and an unused notification is removed.
 
-Status: **in progress** · Branch: `feature/lockscreen-review` · Open steps are tracked as GitHub issues on the fork, under the milestone "Lock screen review".
+Status: **implemented, testing on devices** · Branch: `feature/lockscreen-review` · Open steps are tracked as GitHub issues on the fork, under the milestone "Lock screen review".
 
 ## Approach: live wallpaper
 
@@ -39,7 +39,7 @@ Limits:
 
 - [x] 1.1 `CardStateController`: single "show next card" entry point, used by `MainActivity`, `NotificationReceiver` and `PeriodicWorker`. The wallpaper redraws through a SharedPreferences listener.
 - [x] 1.2 `NotificationReceiver` works off the main thread (`goAsync()`).
-- [ ] 1.3 Honor `CardInfo.buttonCount` (some cards have fewer than 4 buttons). (#3)
+- [x] 1.3 Honor `CardInfo.buttonCount` (some cards have fewer than 4 buttons). (#3)
 - [x] 1.4 Skip cards whose question has sound. Sound and `[[type:...]]` tags are hidden from the displayed text.
 - [x] 1.5 Each deck is scanned up to its due count (learning + review + new, max 500). When no selected deck has a card: "Bravo! You've finished all cards in the selected decks." (notification, lock screen, app).
 - [x] 1.6 Several decks in priority order.
@@ -47,32 +47,32 @@ Limits:
 
 ## Phase 2: Lock-screen notification
 
-- [ ] 2.1 Notification fully visible on the lock screen (`VISIBILITY_PUBLIC`, dedicated channel). (#4)
-- [ ] 2.2 / 2.3 Remove an unused notification on unlock, post it again at the next lock; receivers in the wallpaper engine, current behavior without the wallpaper. (#5)
+- [x] 2.1 Notification fully visible on the lock screen (`VISIBILITY_PUBLIC`, dedicated channel). (#4)
+- [x] 2.2 / 2.3 Remove an unused notification on unlock, post it again at the next lock; receivers in the wallpaper engine, current behavior without the wallpaper. (#5)
 - [x] 2.4 Request `POST_NOTIFICATIONS` at runtime on API 33+.
 
 ## Phase 3: Live wallpaper
 
 - [x] 3.1 `CardWallpaperService` + `Engine` declared in the manifest (`BIND_WALLPAPER`, `res/xml/card_wallpaper.xml`).
-- [ ] 3.2 Better rendering: extract a `CardRenderer`, tune the safe area, typography. (#7)
-- [ ] 3.3 States: card / "Bravo" / not started are done; drawing the user's background on the home screen (Android 8–13) needs the settings below. (#8)
+- [x] 3.2 Better rendering: extract a `CardRenderer`, tune the safe area, typography. (#7)
+- [x] 3.3 States: card / "Bravo" / not started are done; drawing the user's background on the home screen (Android 8–13) needs the settings below. (#8)
 - [x] 3.4 Redraw when the card changes and on `onSurfaceChanged`.
-- [ ] 3.5 `onComputeColors()` so the system theme colors stay consistent. (#9)
-- [ ] Bug: two engine instances receive each screen event. (#10)
+- [x] 3.5 `onComputeColors()` so the system theme colors stay consistent. (#9)
+- [ ] Bug: two engine instances receive each screen event: previews no longer listen; to confirm on a device. (#10)
 
 ## Phase 4: Settings and onboarding
 
-- [ ] 4.1 Wallpaper settings: background image or color, text style, preview. (#8)
+- [x] 4.1 Wallpaper settings: background image or color, text style, preview. (#8)
 - [x] 4.2 "Set lock screen wallpaper" shows instructions and opens the system wallpaper settings (`ACTION_CHANGE_LIVE_WALLPAPER` applied the wallpaper to both screens).
-- [ ] 4.3 Onboarding hints: notifications, sensitive content on the lock screen, battery optimization, wallpaper set. (#11)
+- [x] 4.3 Onboarding hints: notifications, sensitive content on the lock screen, battery optimization, wallpaper set. (#11)
 - [x] 4.4 User-facing strings in `strings.xml`.
 
 ## Phase 5: Testing and release
 
-- [ ] 5.1 Unit tests: card text cleaning, deck order logic, deck tree, renderer. (#12)
+- [x] 5.1 Unit tests: card text cleaning, deck order logic, deck tree, renderer. (#12)
 - [ ] 5.2 Manual test matrix: API 26 / 29 / 33 / 34+, Pixel / Samsung / Xiaomi, reboot, Doze, decks finished, AnkiDroid missing, wallpaper deselected. (#13)
-- [ ] 5.3 README, version, tag a release on the fork, optional PR to upstream. (#14)
-- [ ] CI workflows: `actions/upload-artifact@v3` is retired. (#15)
+- [ ] 5.3 README and version 1.1.0 done; tag a release on the fork, optional PR to upstream. (#14)
+- [x] CI workflows: `actions/upload-artifact@v3` is retired. (#15)
 
 ## How to test on a device
 
