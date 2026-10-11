@@ -162,6 +162,7 @@ public class AnkiDroidHelper {
         message.put("question", card.q);
         message.put("answer", card.a);
         message.put("button_count", card.buttonCount);
+        message.put("deck_name", card.deckName);
         JSONObject js = new JSONObject(message);
 
         cardsDb.edit().putString(KEY_CURRENT_STATE, js.toString()).apply();
@@ -187,6 +188,7 @@ public class AnkiDroidHelper {
             state.question = json.optString("question", "");
             state.answer = json.optString("answer", "");
             state.buttonCount = json.optInt("button_count", 4);
+            state.deckName = json.optString("deck_name", "");
             return state;
         } catch (JSONException e) {
             // Log.e(TAG, "JSONException " + e);
@@ -319,6 +321,8 @@ public class AnkiDroidHelper {
                     CardInfo card = queryCurrentScheduledCard(deckId, scanLimit);
                     if (card != null) {
                         card.deckId = deckId;
+                        String deckName = mApi.getDeckName(deckId);
+                        card.deckName = deckName == null ? "" : deckName;
                     } else {
                         Log.i("Notifications", "deck " + deckId + ": no displayable card among " + scanLimit + " due cards");
                     }

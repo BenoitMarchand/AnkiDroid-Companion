@@ -21,7 +21,7 @@ object CardStateController {
         if (card != null) {
             Log.i("Notifications", "next card found in deck ${card.deckId}")
             anki.storeState(card.deckId, card)
-            Notifications.create().showNotification(context, card, anki.api.getDeckName(card.deckId) ?: "", silent)
+            Notifications.create().showNotification(context, card, card.deckName, silent)
         } else if (notifyIfNone) {
             Log.i("Notifications", "no card to review in the selected decks")
             val emptyCard = CardInfo()

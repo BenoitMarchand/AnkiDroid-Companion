@@ -40,6 +40,7 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -56,8 +57,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -104,6 +107,9 @@ class MainScreenActions(
     val onGrantPermission: () -> Unit,
     val onRetry: () -> Unit,
     val onOpenWallpaperSettings: () -> Unit,
+    val onOpenWallpaperStyle: () -> Unit,
+    val onOpenNotificationSettings: () -> Unit,
+    val onOpenBatterySettings: () -> Unit,
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -115,6 +121,7 @@ fun MainScreen(
     currentCard: CurrentCard,
     isStarting: Boolean,
     lockOnlyWallpaper: Boolean,
+    setup: SetupStatus,
     actions: MainScreenActions,
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
@@ -150,7 +157,7 @@ fun MainScreen(
                 buttonLabel = stringResource(R.string.grant_permission),
                 onClick = actions.onGrantPermission,
             )
-            ScreenState.Ready -> ReadyContent(padding, decks, selectedDeckIds, currentCard, lockOnlyWallpaper, actions)
+            ScreenState.Ready -> ReadyContent(padding, decks, selectedDeckIds, currentCard, lockOnlyWallpaper, setup, actions)
         }
     }
 }
@@ -162,14 +169,24 @@ private fun ReadyContent(
     selectedDeckIds: List<Long>,
     currentCard: CurrentCard,
     lockOnlyWallpaper: Boolean,
+    setup: SetupStatus,
     actions: MainScreenActions,
 ) {
+    var showWallpaperInstructions by rememberSaveable { mutableStateOf(false) }
+    if (showWallpaperInstructions) {
+        WallpaperInstructionsDialog(
+            lockOnlyWallpaper = lockOnlyWallpaper,
+            onDismiss = { showWallpaperInstructions = false },
+            onOpenWallpaperSettings = actions.onOpenWallpaperSettings,
+        )
+    }
     val decksById = decks.associateBy { it.id }
     val selectedDecks = selectedDeckIds.mapNotNull { decksById[it] }
     val tree = remember(decks) { buildDeckTree(decks) }
     // Full names of the unfolded decks. Everything starts folded, like AnkiDroid's deck list.
     var expanded by rememberSaveable { mutableStateOf(emptySet<String>()) }
     val visibleNodes = flattenVisible(tree, expanded)
+    val selectedNames = selectedDecks.map { it.name }.toSet()
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -181,8 +198,17 @@ private fun ReadyContent(
         ),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        if (!setup.isComplete) {
+            item(key = "setup") { SetupCard(setup, onSetWallpaper = { showWallpaperInstructions = true }, actions) }
+        }
         item(key = "current") { CurrentCardCard(currentCard) }
-        item(key = "lock") { LockScreenCard(lockOnlyWallpaper, actions.onOpenWallpaperSettings) }
+        item(key = "lock") {
+            LockScreenCard(
+                wallpaperActive = setup.wallpaperActive,
+                onSetWallpaper = { showWallpaperInstructions = true },
+                onCustomize = actions.onOpenWallpaperStyle,
+            )
+        }
 
         item(key = "order-header") {
             SectionHeader(stringResource(R.string.review_order), stringResource(R.string.review_order_explanation))
@@ -227,6 +253,7 @@ private fun ReadyContent(
                                 node = node,
                                 isExpanded = node.fullName in expanded,
                                 position = if (deckId == null) -1 else selectedDeckIds.indexOf(deckId),
+                                includedIn = selectedAncestor(node.fullName, selectedNames),
                                 onToggleExpanded = {
                                     expanded = if (node.fullName in expanded) expanded - node.fullName else expanded + node.fullName
                                 },
@@ -237,7 +264,25 @@ private fun ReadyContent(
                 }
             }
         }
+        item(key = "version") { AppVersion() }
     }
+}
+
+/** The installed version, from `versionName` in app/build.gradle.kts. */
+@Composable
+private fun AppVersion() {
+    val context = LocalContext.current
+    val versionName = remember {
+        @Suppress("DEPRECATION") // The flags overload needs API 33.
+        context.packageManager.getPackageInfo(context.packageName, 0).versionName
+    }
+    Text(
+        stringResource(R.string.app_version, stringResource(R.string.app_name), versionName ?: "?"),
+        modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        textAlign = TextAlign.Center,
+    )
 }
 
 @Composable
@@ -315,9 +360,7 @@ private fun CurrentCardCard(currentCard: CurrentCard) {
 }
 
 @Composable
-private fun LockScreenCard(lockOnlyWallpaper: Boolean, onOpenWallpaperSettings: () -> Unit) {
-    var showInstructions by rememberSaveable { mutableStateOf(false) }
-
+private fun LockScreenCard(wallpaperActive: Boolean, onSetWallpaper: () -> Unit, onCustomize: () -> Unit) {
     OutlinedCard(Modifier.fillMaxWidth()) {
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Surface(shape = CircleShape, color = MaterialTheme.colorScheme.secondaryContainer, modifier = Modifier.size(40.dp)) {
@@ -335,36 +378,100 @@ private fun LockScreenCard(lockOnlyWallpaper: Boolean, onOpenWallpaperSettings: 
                 )
             }
         }
-        FilledTonalButton(
-            onClick = { showInstructions = true },
-            modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp).fillMaxWidth(),
+        Text(
+            stringResource(R.string.lock_screen_sensitive_tip),
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Row(
+            Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp).fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text(stringResource(R.string.set_lock_wallpaper))
+            if (!wallpaperActive) {
+                FilledTonalButton(onClick = onSetWallpaper, modifier = Modifier.weight(1f)) {
+                    Text(stringResource(R.string.set_lock_wallpaper), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+            OutlinedButton(onClick = onCustomize, modifier = if (wallpaperActive) Modifier.fillMaxWidth() else Modifier) {
+                Text(stringResource(R.string.customize_wallpaper))
+            }
         }
     }
+}
 
-    if (showInstructions) {
-        AlertDialog(
-            onDismissRequest = { showInstructions = false },
-            title = { Text(stringResource(R.string.set_lock_wallpaper)) },
-            text = {
-                Text(
-                    stringResource(
-                        if (lockOnlyWallpaper) R.string.set_lock_wallpaper_instructions
-                        else R.string.set_lock_wallpaper_instructions_both_screens
-                    )
+@Composable
+private fun WallpaperInstructionsDialog(lockOnlyWallpaper: Boolean, onDismiss: () -> Unit, onOpenWallpaperSettings: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.set_lock_wallpaper)) },
+        text = {
+            Text(
+                stringResource(
+                    if (lockOnlyWallpaper) R.string.set_lock_wallpaper_instructions
+                    else R.string.set_lock_wallpaper_instructions_both_screens
                 )
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    showInstructions = false
-                    onOpenWallpaperSettings()
-                }) { Text(stringResource(R.string.open_wallpaper_settings)) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showInstructions = false }) { Text(stringResource(android.R.string.cancel)) }
-            },
-        )
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                onDismiss()
+                onOpenWallpaperSettings()
+            }) { Text(stringResource(R.string.open_wallpaper_settings)) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(android.R.string.cancel)) }
+        },
+    )
+}
+
+/** What still needs to be set up; the checklist only shows the items that aren't done. */
+data class SetupStatus(
+    val notificationsEnabled: Boolean = true,
+    val wallpaperActive: Boolean = true,
+    val batteryUnrestricted: Boolean = true,
+) {
+    val isComplete get() = notificationsEnabled && wallpaperActive && batteryUnrestricted
+}
+
+@Composable
+private fun SetupCard(setup: SetupStatus, onSetWallpaper: () -> Unit, actions: MainScreenActions) {
+    Card(
+        Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
+    ) {
+        Column(Modifier.padding(vertical = 12.dp)) {
+            Text(
+                stringResource(R.string.setup_title),
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onTertiaryContainer,
+            )
+            if (!setup.notificationsEnabled) {
+                SetupItem(R.string.setup_notifications, R.string.setup_notifications_detail, actions.onOpenNotificationSettings)
+            }
+            if (!setup.wallpaperActive) {
+                SetupItem(R.string.setup_wallpaper, R.string.setup_wallpaper_detail, onSetWallpaper)
+            }
+            if (!setup.batteryUnrestricted) {
+                SetupItem(R.string.setup_battery, R.string.setup_battery_detail, actions.onOpenBatterySettings)
+            }
+        }
+    }
+}
+
+@Composable
+private fun SetupItem(title: Int, detail: Int, onFix: () -> Unit) {
+    Row(Modifier.padding(start = 16.dp, end = 8.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(stringResource(title), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onTertiaryContainer)
+            Text(
+                stringResource(detail),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.8f),
+            )
+        }
+        TextButton(onClick = onFix) { Text(stringResource(R.string.setup_fix)) }
     }
 }
 
@@ -415,17 +522,21 @@ private fun DeckTreeRow(
     node: DeckNode,
     isExpanded: Boolean,
     position: Int,
+    includedIn: String?,
     onToggleExpanded: () -> Unit,
     onToggleSelected: () -> Unit,
 ) {
     val deck = node.deck
     val hasChildren = node.children.isNotEmpty()
+    // Already reviewed through a selected parent. A deck selected on its own stays active so it can be removed.
+    val covered = includedIn != null && position < 0
+    val selectable = deck != null && !covered
     val chevronRotation by animateFloatAsState(if (isExpanded) 90f else 0f, label = "chevron")
 
     Row(
         Modifier
             .fillMaxWidth()
-            .clickable(enabled = deck != null || hasChildren) { if (deck != null) onToggleSelected() else onToggleExpanded() }
+            .clickable(enabled = selectable || hasChildren) { if (selectable) onToggleSelected() else onToggleExpanded() }
             .padding(start = (node.depth.coerceAtMost(MAX_INDENT_LEVELS) * 20).dp, end = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -440,7 +551,7 @@ private fun DeckTreeRow(
         } else {
             Spacer(Modifier.width(48.dp))
         }
-        Column(Modifier.weight(1f).padding(vertical = 10.dp)) {
+        Column(Modifier.weight(1f).padding(vertical = 10.dp).alpha(if (covered) DISABLED_ALPHA else 1f)) {
             Text(
                 node.shortName,
                 style = MaterialTheme.typography.bodyLarge,
@@ -448,13 +559,21 @@ private fun DeckTreeRow(
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
-            if (deck != null) DeckCounts(deck)
+            if (covered) {
+                Text(
+                    stringResource(R.string.included_with_parent, includedIn!!.substringAfterLast("::")),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else if (deck != null) {
+                DeckCounts(deck)
+            }
         }
         if (position >= 0) {
             PositionBadge(position)
         }
         if (deck != null) {
-            Checkbox(checked = position >= 0, onCheckedChange = { onToggleSelected() })
+            Checkbox(checked = position >= 0 || covered, onCheckedChange = { onToggleSelected() }, enabled = !covered)
         }
     }
 }
@@ -467,6 +586,9 @@ private fun PositionBadge(position: Int) {
         }
     }
 }
+
+/** Opacity of a deck already included through its selected parent. */
+private const val DISABLED_ALPHA = 0.45f
 
 /** Deeper levels aren't indented further, so names keep enough room on a phone screen. */
 private const val MAX_INDENT_LEVELS = 4

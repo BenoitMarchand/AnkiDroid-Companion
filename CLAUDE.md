@@ -37,7 +37,7 @@ Single module `:app`, package `com.ankidroid.companion`, mixed Java + Kotlin. Th
 |---|---|
 | `MainActivity.kt` | Creates the notification channel, requests the AnkiDroid and notification permissions, loads decks and due counts off the main thread, and holds the screen state. "Start reviewing" shows the next card and schedules the worker. |
 | `ui/DeckTree.kt` | Builds the deck tree from `Parent::Child` names and the list of visible (unfolded) rows. |
-| `ui/MainScreen.kt` | Compose UI: current card, lock screen wallpaper setup, the "Review order" list (selected decks, reordered with up/down arrows) and the "All decks" tree built from `Parent::Child` names (fold/unfold, checkbox to select). Stateless; actions go through `MainScreenActions`. |
+| `ui/MainScreen.kt` | Compose UI: setup checklist (notifications, wallpaper, battery), current card, lock screen wallpaper setup, the "Review order" list (selected decks, reordered with up/down arrows) and the "All decks" tree built from `Parent::Child` names (fold/unfold, checkbox to select). Stateless; actions go through `MainScreenActions`. |
 | `DeckSelection.kt` | The selected decks in priority order (SharedPreferences `com.ankidroid.companion.deck_selection`). |
 | `CardStateController.kt` | Single entry point for "move to the next card": `showNextCard()` finds the next card in the selected decks, stores it and updates the notification. Does ContentProvider I/O, so call it off the main thread. |
 | `AnkiDroidHelper.java` | The only gateway to AnkiDroid: deck lookup and due counts, `queryNextCard(deckIds)` (first displayable due card of the first deck that has one), `queryCurrentScheduledCard(deckId, scanLimit)` (via `FlashCardsContract.ReviewInfo`; `queryNextCard` scans each deck up to its due count, max 500), `reviewCard(noteId, ord, startTime, ease)`, and persistence of the current state in SharedPreferences (`com.ichi2.anki.api.state`, JSON under `CURRENT_STATE`, including the question text). |
@@ -47,7 +47,10 @@ Single module `:app`, package `com.ankidroid.companion`, mixed Java + Kotlin. Th
 | `Notifications.kt` | Creates the `lockscreen_review` channel (public on the lock screen) and builds the single notification (ID `1`) with custom `RemoteViews` (`notification_collapsed`, `notification_expanded_full`, `notification_expanded_empty`). Buttons send `ACTION_BUTTON_1..4` broadcasts; only the buttons the card has are shown. |
 | `NotificationReceiver.kt` | Handles the button broadcasts on a background thread (`goAsync()`): reviews the stored card with ease 1–4, then `CardStateController.showNextCard()`. |
 | `PeriodicWorker.kt` | WorkManager job (`"WORKER_ANKI"`, every 8 h). When the stored state is the empty card, it looks for a new card and shows it. |
-| `CardWallpaperService.kt` | Live wallpaper for the lock screen: draws the current question and redraws when `CURRENT_STATE` changes. |
+| `CardWallpaperService.kt` | Live wallpaper for the lock screen: draws the current card with `CardRenderer`, redraws when `CURRENT_STATE` or the style changes, and drives `LockSession` from screen events (the only component that receives them). |
+| `CardRenderer.kt` / `CardLayout.kt` | Draws the card (background color or image, question, deck name). `CardLayout` is the pure geometry: text area, text size fitting. |
+| `WallpaperStyle.kt` / `WallpaperSettingsActivity.kt` | The lock screen style (background color or image in app storage, text color and size) and its settings screen with a live preview. Also opened from the system wallpaper picker. |
+| `LockSession.kt` | Removes the notification on unlock when the card wasn't answered while locked, and posts it again at the next lock. |
 | `CardInfo.java` / `StoredState.java` | Plain data holders. An "empty" state is represented by `noteID == -1 && cardOrd == -1`. |
 
 ### Core flow

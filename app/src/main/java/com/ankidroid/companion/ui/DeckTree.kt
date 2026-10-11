@@ -28,6 +28,19 @@ internal fun buildDeckTree(decks: List<DeckItem>): List<DeckNode> {
     return roots
 }
 
+/**
+ * The nearest selected ancestor of the deck [fullName], or null. Studying a deck includes its subdecks, so a
+ * deck under a selected deck is already reviewed through it.
+ */
+internal fun selectedAncestor(fullName: String, selectedNames: Set<String>): String? {
+    var name = fullName.substringBeforeLast("::", "")
+    while (name.isNotEmpty()) {
+        if (name in selectedNames) return name
+        name = name.substringBeforeLast("::", "")
+    }
+    return null
+}
+
 internal fun flattenVisible(nodes: List<DeckNode>, expanded: Set<String>): List<DeckNode> = buildList {
     fun visit(list: List<DeckNode>) {
         list.forEach { node ->
