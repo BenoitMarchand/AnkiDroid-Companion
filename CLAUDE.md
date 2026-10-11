@@ -43,14 +43,16 @@ Single module `:app`, package `com.ankidroid.companion`, mixed Java + Kotlin. Th
 | `ui/DeckTree.kt` | Builds the deck tree from `Parent::Child` names and the list of visible (unfolded) rows. |
 | `ui/MainScreen.kt` | Compose UI: setup checklist (notifications, wallpaper, battery), current card, lock screen wallpaper setup, the "Review order" list (selected decks, reordered with up/down arrows) and the "All decks" tree built from `Parent::Child` names (fold/unfold, checkbox to select). Stateless; actions go through `MainScreenActions`. |
 | `DeckSelection.kt` | The selected decks in priority order (SharedPreferences `com.ankidroid.companion.deck_selection`). |
-| `CardStateController.kt` | Single entry point for "move to the next card": `showNextCard()` finds the next card in the selected decks, stores it and updates the notification. Does ContentProvider I/O, so call it off the main thread. |
-| `AnkiDroidHelper.java` | The only gateway to AnkiDroid: deck lookup and due counts, `queryNextCard(deckIds)` (first displayable due card of the first deck that has one), `queryCurrentScheduledCard(deckId, scanLimit)` (via `FlashCardsContract.ReviewInfo`; `queryNextCard` scans each deck up to its due count, max 500), `reviewCard(noteId, ord, startTime, ease)`, and persistence of the current state in SharedPreferences (`com.ichi2.anki.api.state`, JSON under `CURRENT_STATE`, including the question text). |
-| `DeckScanner.kt` | Pure logic of the deck order: first deck with a displayable card, each deck scanned up to its due count (max 500), decks with nothing due skipped. |
+| `CardStateController.kt` | Single entry point for the displayed card. `showNextCard()` finds the next card in the selected decks, stores it and updates the notification. `syncWithAnkiDroid()` compares the displayed card with AnkiDroid's actual next card and only acts when needed (`CardSync`); `syncOnLock()` runs it in the background, at most every 10 minutes. Both do ContentProvider I/O (off the main thread) and are serialized. |
+| `CardSync.kt` | Pure decision of the sync: nothing, show the next card, show "Bravo", or post the notification again (reboot, swiped away), plus the lock check throttle. |
+| `BootReceiver.kt` | After a reboot, runs the sync so the card notification comes back. |
+| `AnkiDroidHelper.java` | The only gateway to AnkiDroid: deck lookup and due counts, `queryNextCard(deckIds)` (first displayable due card of the first deck that has one), `queryCurrentScheduledCard(deckId, scanLimit)` (via `FlashCardsContract.ReviewInfo`; `queryNextCard` scans each deck progressively up to its due count, max 500), `isCardDue()` (checked before answering), `reviewCard(noteId, ord, startTime, ease)`, and persistence of the current state in SharedPreferences (`com.ichi2.anki.api.state`, JSON under `CURRENT_STATE`, including the question text). |
+| `DeckScanner.kt` | Pure logic of the deck order: first deck with a displayable card, each deck scanned progressively (1 card, 10, then up to its due count, max 500: the query cost grows with the scan size), decks with nothing due skipped. Also `isDue()`. |
 | `AnswerButtons.kt` | Which answer buttons a card shows and the ease each one sends, from the card's button count (2, 3 or 4). |
 | `CardText.kt` | Turns card HTML into displayed text (strips HTML, sound and `[[type:...]]` tags) and detects sound in a question. |
 | `Notifications.kt` | Creates the `lockscreen_review` channel (public on the lock screen) and builds the single notification (ID `1`) with custom `RemoteViews` (`notification_collapsed`, `notification_expanded_full`, `notification_expanded_empty`). Buttons send `ACTION_BUTTON_1..4` broadcasts; only the buttons the card has are shown. |
-| `NotificationReceiver.kt` | Handles the button broadcasts on a background thread (`goAsync()`): reviews the stored card with ease 1–4, then `CardStateController.showNextCard()`. |
-| `PeriodicWorker.kt` | WorkManager job (`"WORKER_ANKI"`, every 8 h). When the stored state is the empty card, it looks for a new card and shows it. |
+| `NotificationReceiver.kt` | Handles the button broadcasts on a background thread (`goAsync()`): reviews the stored card with ease 1–4 (only if AnkiDroid still has it due, to avoid a double review), then `CardStateController.showNextCard()`. |
+| `PeriodicWorker.kt` | WorkManager job (`"WORKER_ANKI"`, hourly, `PeriodicWorker.schedule()`): runs the sync, which also finds new cards after "Bravo". |
 | `CardWallpaperService.kt` | Live wallpaper for the lock screen: draws the current card with `CardRenderer`, redraws when `CURRENT_STATE` or the style changes, and drives `LockSession` from screen events (the only component that receives them). |
 | `CardRenderer.kt` / `CardLayout.kt` | Draws the card (background color or image, question, deck name). `CardLayout` is the pure geometry: text area, text size fitting. |
 | `WallpaperStyle.kt` / `WallpaperSettingsActivity.kt` | The lock screen style (background color or image in app storage, text color and size) and its settings screen with a live preview. Also opened from the system wallpaper picker. |
@@ -62,9 +64,13 @@ Single module `:app`, package `com.ankidroid.companion`, mixed Java + Kotlin. Th
 ```
 MainActivity "Start reviewing" ──► CardStateController.showNextCard ──► AnkiDroidHelper.queryNextCard(selected decks)
         ▲                                   │                             └─ per deck, in order: first due card without sound in the question
-PeriodicWorker (8h, when state is empty) ───┤
 NotificationReceiver: reviewCard(ease) ─────┘──► storeState ──► Notifications.showNotification + lock screen wallpaper redraw
+
+CardStateController.syncWithAnkiDroid: app opened, deck order changed, phone locked (max every 10 min), reboot, hourly worker
+        └─► queryNextCard ─► CardSync.decide ─► nothing / show next card / "Bravo" / post the notification again
 ```
+
+AnkiDroid doesn't tell other apps when a card is reviewed, edited or removed in it: that's why the displayed card is re-checked at these moments, and before each answer.
 
 Cards are never skipped in AnkiDroid's scheduler: fetching due cards is read-only, and only `reviewCard()` records a review. Cards that can't be displayed simply stay due in AnkiDroid.
 

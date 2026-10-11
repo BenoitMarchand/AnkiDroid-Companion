@@ -355,6 +355,46 @@ public class AnkiDroidHelper {
         return counts;
     }
 
+    /**
+     * The identifiers of the next {@code limit} due cards of the deck (subdecks included), without their content.
+     * Empty if they can't be read.
+     */
+    public List<CardSync.CardKey> queryDueCardKeys(long deckId, int limit) {
+        List<CardSync.CardKey> keys = new ArrayList<>();
+        if (!isPermissionGranted()) {
+            return keys;
+        }
+        String[] projection = {FlashCardsContract.ReviewInfo.NOTE_ID, FlashCardsContract.ReviewInfo.CARD_ORD};
+        String[] arguments = {"" + limit, "" + deckId};
+        try (Cursor cursor = mContext.getContentResolver().query(
+                FlashCardsContract.ReviewInfo.CONTENT_URI, projection, "limit=?,deckID=?", arguments, null)) {
+            if (cursor == null) {
+                return keys;
+            }
+            int noteColumn = cursor.getColumnIndexOrThrow(FlashCardsContract.ReviewInfo.NOTE_ID);
+            int ordColumn = cursor.getColumnIndexOrThrow(FlashCardsContract.ReviewInfo.CARD_ORD);
+            while (cursor.moveToNext()) {
+                keys.add(new CardSync.CardKey(cursor.getLong(noteColumn), cursor.getInt(ordColumn)));
+            }
+        } catch (RuntimeException e) {
+            Log.e("AnkiDroidHelper", "Could not read due cards", e);
+        }
+        return keys;
+    }
+
+    /**
+     * Whether the card is still due in the deck, i.e. it wasn't reviewed, buried, suspended or deleted in
+     * AnkiDroid since it was shown. Null if it can't be checked.
+     */
+    public Boolean isCardDue(long deckId, long noteId, int cardOrd) {
+        if (deckId == -1 || !isPermissionGranted()) {
+            return null;
+        }
+        int[] deckCounts = getDeckCounts().get(deckId);
+        Integer due = deckCounts == null ? null : deckCounts[0] + deckCounts[1] + deckCounts[2];
+        return DeckScanner.isDue(new CardSync.CardKey(noteId, cardOrd), due, limit -> queryDueCardKeys(deckId, limit));
+    }
+
     public void reviewCard(long noteID, int cardOrd, long cardStartTime, int ease) {
         long timeTaken = System.currentTimeMillis() - cardStartTime;
         ContentResolver cr = mContext.getContentResolver();

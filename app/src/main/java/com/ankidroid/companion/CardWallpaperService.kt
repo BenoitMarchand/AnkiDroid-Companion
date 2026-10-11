@@ -173,6 +173,8 @@ class CardWallpaperService : WallpaperService() {
         }
 
         private fun onLocked() {
+            // AnkiDroid doesn't report changes: check the displayed card is still the right one (throttled).
+            CardStateController.syncOnLock(this@CardWallpaperService)
             if (!LockSession.onLocked(this@CardWallpaperService)) return
             // The notification was removed at the last unlock: show the current card again.
             val state = AnkiDroidHelper(this@CardWallpaperService).storedState ?: return
