@@ -79,3 +79,4 @@ How to test the spike (`CardWallpaperService.kt`, written but **not yet built or
 <!-- Record spike results, device quirks, and the decisions made (with dates). -->
 
 - 2026-10-11: The main test device runs stock Android 15+. The Google wallpaper picker supports separate live wallpapers on the lock screen, which is the best case for this approach. Older Android versions and other OEMs remain to be tested in 5.2 (the emulator is fine for API 26–33).
+- 2026-10-11: `WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER` opens the legacy live-wallpaper preview, which applies the wallpaper to **home and lock** (`which = 3`), replacing the home wallpaper. Apps can't set a lock-only live wallpaper themselves (`setWallpaperComponentWithFlags` is a system API). The button now shows instructions and opens `android.settings.WALLPAPER_SETTINGS` ("Wallpaper & style" on Pixel), where the user selects the lock screen.

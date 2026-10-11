@@ -1,12 +1,13 @@
 package com.ankidroid.companion
 
+import android.app.AlertDialog
 import android.app.NotificationChannel
 import android.app.NotificationManager
-import android.app.WallpaperManager
-import android.content.ComponentName
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.View
@@ -21,6 +22,8 @@ import androidx.work.WorkManager
 import com.ichi2.anki.api.AddContentApi
 import java.util.concurrent.TimeUnit
 
+
+private const val ACTION_WALLPAPER_SETTINGS = "android.settings.WALLPAPER_SETTINGS"
 
 class MainActivity : ComponentActivity() {
     private lateinit var mAnkiDroid:AnkiDroidHelper
@@ -96,11 +99,26 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun openWallpaperPicker() {
-        val intent = Intent(WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER).putExtra(
-            WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT,
-            ComponentName(this, CardWallpaperService::class.java)
-        )
-        startActivity(intent)
+        // Only the system wallpaper app can apply a live wallpaper to the lock screen alone, so explain
+        // what to pick there instead of using ACTION_CHANGE_LIVE_WALLPAPER (which applies it to both screens).
+        val message = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            R.string.set_lock_wallpaper_instructions
+        } else {
+            R.string.set_lock_wallpaper_instructions_both_screens
+        }
+        AlertDialog.Builder(this)
+            .setTitle(R.string.set_lock_wallpaper)
+            .setMessage(message)
+            .setPositiveButton(R.string.open_wallpaper_settings) { _, _ ->
+                try {
+                    // Public action, but its constant is hidden from the SDK. Opens "Wallpaper & style" on Pixel.
+                    startActivity(Intent(ACTION_WALLPAPER_SETTINGS))
+                } catch (e: ActivityNotFoundException) {
+                    startActivity(Intent.createChooser(Intent(Intent.ACTION_SET_WALLPAPER), getString(R.string.set_lock_wallpaper)))
+                }
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
     }
 
     private fun explainError(errorText:String) {
