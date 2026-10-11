@@ -45,6 +45,8 @@ How to test the spike (`CardWallpaperService.kt`, written but **not yet built or
 - [ ] 1.1 Add a `CardStateController` as the single "current card changed" entry point, used by `MainActivity`, `NotificationReceiver` and `PeriodicWorker`. It notifies listeners (notification and wallpaper engine), e.g. through a SharedPreferences change listener or an in-app broadcast.
 - [ ] 1.2 Move the `NotificationReceiver` work off the main thread (`goAsync()`).
 - [ ] 1.3 Honor `CardInfo.buttonCount` (some cards have fewer than 4 buttons).
+- [x] 1.4 Skip cards that can't be displayed as text (sound, typed answer, images): look through the next 50 due cards and use the first text-only one. Skipped cards stay due in AnkiDroid.
+- [ ] 1.5 When only non-displayable cards remain, show "Remaining cards need AnkiDroid" instead of "Congrats! You've finished the deck!".
 
 ## Phase 2: Lock-screen notification (~1 day)
 

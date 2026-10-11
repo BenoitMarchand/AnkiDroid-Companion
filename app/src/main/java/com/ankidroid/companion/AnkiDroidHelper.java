@@ -12,6 +12,7 @@ import android.net.Uri;
 import android.os.Build;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
+import androidx.core.text.HtmlCompat;
 import android.os.Handler;
 import android.util.Log;
 import android.widget.Toast;
@@ -23,6 +24,7 @@ import static com.ichi2.anki.api.AddContentApi.READ_WRITE_PERMISSION;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -41,6 +43,12 @@ public class AnkiDroidHelper {
     public static final String STATE_DB = "com.ichi2.anki.api.state";
 
     public static final String KEY_CURRENT_STATE = "CURRENT_STATE";
+
+    /** How many due cards to look through for one that can be displayed. */
+    private static final int CARD_SCAN_LIMIT = 50;
+    /** Audio ([sound:x], [anki:play:...]), typed answers ([[type:Field]]) and images. */
+    private static final Pattern UNSUPPORTED_CONTENT =
+            Pattern.compile("\\[sound:|\\[anki:play:|\\[\\[type:|<img", Pattern.CASE_INSENSITIVE);
 
     private AddContentApi mApi;
     private Context mContext;
@@ -193,7 +201,8 @@ public class AnkiDroidHelper {
         // Log.d(TAG, "QueryForCurrentCard");
         String[] deckArguments = new String[deckID == -1 ? 1 : 2];
         String deckSelector = "limit=?";
-        deckArguments[0] = "" + 1;
+        // Fetch several due cards so the ones we can't display (audio, typed answer...) can be skipped.
+        deckArguments[0] = "" + CARD_SCAN_LIMIT;
         if (deckID != -1) {
             deckSelector += ",deckID=?";
             deckArguments[1] = "" + deckID;
@@ -258,18 +267,35 @@ public class AnkiDroidHelper {
                             if (specificCardCursor != null) {
                                 specificCardCursor.close();
                             }
-                            return null;
-                        } else {
-                            card.a = specificCardCursor.getString(specificCardCursor.getColumnIndex(FlashCardsContract.Card.ANSWER_PURE));
-                            card.q = specificCardCursor.getString(specificCardCursor.getColumnIndex(FlashCardsContract.Card.QUESTION_SIMPLE));
-                            specificCardCursor.close();
+                            continue;
                         }
+                        card.a = specificCardCursor.getString(specificCardCursor.getColumnIndex(FlashCardsContract.Card.ANSWER_PURE));
+                        card.q = specificCardCursor.getString(specificCardCursor.getColumnIndex(FlashCardsContract.Card.QUESTION_SIMPLE));
+                        specificCardCursor.close();
+
+                        if (isDisplayable(card)) {
+                            return card;
+                        }
+                        Log.i("Notifications", "skipping card that can't be displayed, noteID: " + card.noteID + ", ord: " + card.cardOrd);
                     }
-                    return cards.get(0);
+                    Log.i("Notifications", "no displayable card among the next " + cards.size() + " due cards");
                 }
             }
         }
         return null;
+    }
+
+    /**
+     * Whether the card can be shown as plain text in the notification and on the lock screen.
+     * Cards with sound, a typed answer or images are skipped for now; they stay due in AnkiDroid.
+     */
+    static boolean isDisplayable(CardInfo card) {
+        String content = card.q + " " + card.a;
+        if (UNSUPPORTED_CONTENT.matcher(content).find()) {
+            return false;
+        }
+        String questionText = HtmlCompat.fromHtml(card.q, HtmlCompat.FROM_HTML_MODE_LEGACY).toString().trim();
+        return !questionText.isEmpty();
     }
 
     public void reviewCard(long noteID, int cardOrd, long cardStartTime, int ease) {
