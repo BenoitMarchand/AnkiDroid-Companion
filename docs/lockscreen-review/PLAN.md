@@ -1,60 +1,92 @@
 # Lock screen review: plan
 
-Feature: while the phone is locked, the lock-screen wallpaper shows the current due card, and a lock-screen notification shows the answer with review buttons. When the phone is unlocked, the original wallpaper is restored automatically.
+Feature: while the phone is locked, the lock screen shows the current due card, and a lock-screen notification shows the answer with the 4 review buttons. Once unlocked, the lock-screen card disappears, and an unused notification is removed.
 
-Status: **not started** · Branch: `feature/lockscreen-review` · Fork: https://github.com/BenoitMarchand/AnkiDroid-Companion
+Status: **in progress** · Branch: `feature/lockscreen-review` · Open steps are tracked as GitHub issues on the fork, under the milestone "Lock screen review".
 
-## Open decisions
+## Approach: live wallpaper
 
-- [ ] **5th button**: AnkiDroid's API only supports ease 1–4 (Again/Hard/Good/Easy). What should the 5th button do? Candidates: Show answer / Skip / Bury.
-- [ ] **On unlock**: restore only the wallpaper, keeping the notification in the shade as today? Or hide the notification too until the next lock?
-- [ ] **Restore strategy**: `WallpaperManager.clear(FLAG_LOCK)`, which falls back to the home wallpaper, versus a user-picked lock image (or both, as a setting).
+The app provides a **live wallpaper** ("AnkiDroid Companion card") that the user selects in Android's own wallpaper settings, for the **lock screen only**. The wallpaper draws the current card's question.
 
-## Phase 0: Spike to reduce risk (~1 day)
+Why not swap static wallpapers (`WallpaperManager.setBitmap`)?
+- Nothing has to be saved and restored, so the original wallpaper is never lost.
+- No disk write on every lock/unlock, so no flicker or delay and no theme recolor.
+- It doesn't need the `SET_WALLPAPER` permission or a foreground service just to detect unlocking. The wallpaper engine is kept alive by the system while it's selected.
 
-- [ ] 0.1 Prototype: set a generated bitmap as the lock wallpaper (`FLAG_LOCK`), restore it with `clear(FLAG_LOCK)`, and measure how long a swap takes.
-- [ ] 0.2 Check that the notification buttons work from the lock screen without unlocking.
-- [ ] 0.3 Settle the open decisions above and record the results in the Notes section.
+Limits:
+- A separate live wallpaper for the lock screen only is supported from **Android 14**.
+- On Android 8–13, a live wallpaper applies to both the home screen and the lock screen. The engine then draws the card only while the keyguard is shown, and a background otherwise.
+- Apps can't set a lock-only live wallpaper themselves: the user picks it in the system wallpaper settings.
+- Some OEM lock screens (MIUI/HyperOS, some Samsung modes) may not show third-party live wallpapers.
 
-## Phase 1: Refactor the shared logic (~1 day)
+## Decisions
 
-- [ ] 1.1 Add a `CardStateController` as the single "current card changed" entry point, used by `MainActivity`, `NotificationReceiver` and `PeriodicWorker`.
-- [ ] 1.2 Move the `NotificationReceiver` work off the main thread (`goAsync()`).
-- [ ] 1.3 Honor `CardInfo.buttonCount`.
+- [x] **Buttons**: keep the original 4 (Again/Hard/Good/Easy). No 5th button. *(2026-10-11)*
+- [x] **Wallpaper scope**: only the lock-screen wallpaper changes. The home wallpaper stays untouched. *(2026-10-11)*
+- [x] **Wallpaper mechanism**: live wallpaper, set by the user in the system wallpaper settings. Verified on the test device. *(2026-10-11)*
+- [x] **Unused notification**: if no button was pressed during the lock session, the notification is removed on unlock and posted again at the next lock. *(2026-10-11)*
+- [x] **Cards that can't be displayed**: cards with sound in the question are skipped. They stay due in AnkiDroid: fetching due cards is read-only, only an answer records a review. *(2026-10-11)*
+- [x] **Several decks**: the user selects decks and orders them. Cards come from the first deck that has a displayable due card; a deck is passed over once all its due cards were skipped, or when nothing is due. *(2026-10-11)*
+- [ ] Should the notification also time out after N minutes on the lock screen? (#6)
 
-## Phase 2: Lock-screen notification (~0.5–1 day)
+## Phase 0: Spike on a real device
 
-- [ ] 2.1 Add a `lockscreen_review` channel with `lockscreenVisibility = PUBLIC`, and call `setVisibility(VISIBILITY_PUBLIC)` on the notification.
-- [ ] 2.2 Add the 5th button to `notification_expanded_full.xml` and handle `ACTION_BUTTON_5`.
-- [ ] 2.3 Request `POST_NOTIFICATIONS` at runtime on API 33+.
+- [x] 0.1 Minimal `WallpaperService`, selectable for the lock screen only.
+- [x] 0.2 Engine detects lock/unlock (`SCREEN_OFF` / `SCREEN_ON` / `USER_PRESENT` receiver in the engine, `KeyguardManager.isKeyguardLocked()`) and switches between the card and the background. Lock-screen-only wallpapers always draw the card.
+- [ ] 0.3 Notification buttons work from the lock screen without unlocking, and the wallpaper switches to the next card. (#2)
 
-## Phase 3: Generating the wallpaper (~1–1.5 days)
+## Phase 1: Card selection and main screen
 
-- [ ] 3.1 `LockWallpaperRenderer`: turn `CardInfo` into a `Bitmap` at screen size (`StaticLayout`, font size adapted to the text).
-- [ ] 3.2 Style: background color or user image, with the text kept in a safe area that avoids the clock and notifications.
-- [ ] 3.3 Strip basic HTML from the question (`Html.fromHtml`).
-- [ ] 3.4 `LockWallpaperManager`: `apply(bitmap)` / `restore()` (`SET_WALLPAPER`, `FLAG_LOCK`, restore mode).
+- [x] 1.1 `CardStateController`: single "show next card" entry point, used by `MainActivity`, `NotificationReceiver` and `PeriodicWorker`. The wallpaper redraws through a SharedPreferences listener.
+- [x] 1.2 `NotificationReceiver` works off the main thread (`goAsync()`).
+- [ ] 1.3 Honor `CardInfo.buttonCount` (some cards have fewer than 4 buttons). (#3)
+- [x] 1.4 Skip cards whose question has sound. Sound and `[[type:...]]` tags are hidden from the displayed text.
+- [x] 1.5 Each deck is scanned up to its due count (learning + review + new, max 500). When no selected deck has a card: "Bravo! You've finished all cards in the selected decks." (notification, lock screen, app).
+- [x] 1.6 Several decks in priority order.
+- [x] 1.7 Modern main screen in Jetpack Compose (Material 3, dynamic colors): current card, lock screen setup, review order, foldable deck tree with due counts.
 
-## Phase 4: Lock/unlock lifecycle (~2 days)
+## Phase 2: Lock-screen notification
 
-- [ ] 4.1 `LockScreenService`: a foreground service of type `specialUse` that reuses the review notification.
-- [ ] 4.2 Receiver registered at runtime: `SCREEN_OFF` → apply the card wallpaper, `USER_PRESENT` → restore. Debounce it and skip redundant writes.
-- [ ] 4.3 After answering while locked, regenerate the wallpaper. When the deck is finished, restore the original and stop the service.
-- [ ] 4.4 `BOOT_COMPLETED` receiver, plus a hook in `PeriodicWorker` to restart the service when new cards are due.
-- [ ] 4.5 Safety nets: restore the wallpaper when the feature is disabled or the service crashes.
+- [ ] 2.1 Notification fully visible on the lock screen (`VISIBILITY_PUBLIC`, dedicated channel). (#4)
+- [ ] 2.2 / 2.3 Remove an unused notification on unlock, post it again at the next lock; receivers in the wallpaper engine, current behavior without the wallpaper. (#5)
+- [x] 2.4 Request `POST_NOTIFICATIONS` at runtime on API 33+.
 
-## Phase 5: Settings UI (~1 day)
+## Phase 3: Live wallpaper
 
-- [ ] 5.1 On/off switch, restore-mode choice, image picker (Photo Picker), appearance preview.
-- [ ] 5.2 Onboarding: notification permission, battery optimization exemption, "show sensitive content on lock screen".
-- [ ] 5.3 Move the new strings into `strings.xml`.
+- [x] 3.1 `CardWallpaperService` + `Engine` declared in the manifest (`BIND_WALLPAPER`, `res/xml/card_wallpaper.xml`).
+- [ ] 3.2 Better rendering: extract a `CardRenderer`, tune the safe area, typography. (#7)
+- [ ] 3.3 States: card / "Bravo" / not started are done; drawing the user's background on the home screen (Android 8–13) needs the settings below. (#8)
+- [x] 3.4 Redraw when the card changes and on `onSurfaceChanged`.
+- [ ] 3.5 `onComputeColors()` so the system theme colors stay consistent. (#9)
+- [ ] Bug: two engine instances receive each screen event. (#10)
 
-## Phase 6: Testing and release (~1–2 days)
+## Phase 4: Settings and onboarding
 
-- [ ] 6.1 Unit tests: the renderer's text layout and the state controller.
-- [ ] 6.2 Manual test matrix: API 26 / 29 / 33 / 34+, Pixel / Samsung / Xiaomi, reboot, Doze, deck finished, AnkiDroid missing.
-- [ ] 6.3 Update the README and version, tag a release on the fork, and optionally open a PR to upstream.
+- [ ] 4.1 Wallpaper settings: background image or color, text style, preview. (#8)
+- [x] 4.2 "Set lock screen wallpaper" shows instructions and opens the system wallpaper settings (`ACTION_CHANGE_LIVE_WALLPAPER` applied the wallpaper to both screens).
+- [ ] 4.3 Onboarding hints: notifications, sensitive content on the lock screen, battery optimization, wallpaper set. (#11)
+- [x] 4.4 User-facing strings in `strings.xml`.
+
+## Phase 5: Testing and release
+
+- [ ] 5.1 Unit tests: card text cleaning, deck order logic, deck tree, renderer. (#12)
+- [ ] 5.2 Manual test matrix: API 26 / 29 / 33 / 34+, Pixel / Samsung / Xiaomi, reboot, Doze, decks finished, AnkiDroid missing, wallpaper deselected. (#13)
+- [ ] 5.3 README, version, tag a release on the fork, optional PR to upstream. (#14)
+- [ ] CI workflows: `actions/upload-artifact@v3` is retired. (#15)
+
+## How to test on a device
+
+1. Build and install the debug APK (in VS Code: Ctrl+Shift+B, which runs `scripts/install.ps1`).
+2. In the app, tick decks in **All decks**, order them under **Review order**, and tap **Start reviewing**.
+3. Tap **Set lock screen wallpaper** and follow the instructions to choose the lock screen only.
+4. Lock the phone: the question should be on the lock screen. Answer from the notification: the wallpaper should switch to the next card.
+5. Watch the logs: `adb logcat -s CardWallpaper Notifications` (or the VS Code task "Android: install on device + logs").
 
 ## Notes and findings
 
 <!-- Record spike results, device quirks, and the decisions made (with dates). -->
+
+- 2026-10-11: The main test device runs stock Android 15+. The Google wallpaper picker supports separate live wallpapers on the lock screen, which is the best case for this approach. Older Android versions and other OEMs remain to be tested in 5.2 (the emulator is fine for API 26–33).
+- 2026-10-11: `WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER` opens the legacy live-wallpaper preview, which applies the wallpaper to **home and lock** (`which = 3`), replacing the home wallpaper. Apps can't set a lock-only live wallpaper themselves (`setWallpaperComponentWithFlags` is a system API). The button now shows instructions and opens `android.settings.WALLPAPER_SETTINGS` ("Wallpaper & style" on Pixel), where the user selects the lock screen.
+- 2026-10-11: Verified on the test device (Android 17): set through "Wallpaper & style" > Lock screen, the card wallpaper is bound to the lock screen only and the home wallpaper is unchanged. The engine logs each screen event twice, so two engine instances are probably alive (#10).
+- 2026-10-11: On a fresh install, no notification was shown because `POST_NOTIFICATIONS` was never requested (fixed in 2.4). A card stored by an older version (sound-only question) made the wallpaper blank: it now shows a hint to start reviewing.

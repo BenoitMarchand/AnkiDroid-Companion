@@ -13,6 +13,7 @@ import android.os.Build;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 import android.widget.Toast;
 
@@ -22,6 +23,7 @@ import static com.ichi2.anki.api.AddContentApi.READ_WRITE_PERMISSION;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.json.JSONArray;
@@ -38,13 +40,14 @@ public class AnkiDroidHelper {
             FlashCardsContract.Card.ANSWER_PURE,
             FlashCardsContract.Card.QUESTION_SIMPLE};
     private static final String DECK_REF_DB = "com.ichi2.anki.api.decks";
-    private static final String STATE_DB = "com.ichi2.anki.api.state";
+    public static final String STATE_DB = "com.ichi2.anki.api.state";
 
-    private static final String KEY_CURRENT_STATE = "CURRENT_STATE";
+    public static final String KEY_CURRENT_STATE = "CURRENT_STATE";
+
 
     private AddContentApi mApi;
     private Context mContext;
-    private final Handler uiHandler = new Handler();
+    private final Handler uiHandler = new Handler(Looper.getMainLooper());
 
     public AnkiDroidHelper(Context context) {
         Log.i("BackgroundService", "AnkiDroidHelper constructor - 1");
@@ -156,6 +159,9 @@ public class AnkiDroidHelper {
         message.put("note_id", card.noteID);
         message.put("card_ord", card.cardOrd);
         message.put("start_time", card.cardStartTime);
+        message.put("question", card.q);
+        message.put("answer", card.a);
+        message.put("button_count", card.buttonCount);
         JSONObject js = new JSONObject(message);
 
         cardsDb.edit().putString(KEY_CURRENT_STATE, js.toString()).apply();
@@ -178,6 +184,9 @@ public class AnkiDroidHelper {
             state.noteID = json.getLong("note_id");
             state.cardOrd = json.getInt("card_ord");
             state.cardStartTime = json.getLong("start_time");
+            state.question = json.optString("question", "");
+            state.answer = json.optString("answer", "");
+            state.buttonCount = json.optInt("button_count", 4);
             return state;
         } catch (JSONException e) {
             // Log.e(TAG, "JSONException " + e);
@@ -188,10 +197,20 @@ public class AnkiDroidHelper {
 
     @SuppressLint("Range,DirectSystemCurrentTimeMillisUsage")
     public CardInfo queryCurrentScheduledCard(long deckID) {
+        return queryCurrentScheduledCard(deckID, DeckScanner.DEFAULT_SCAN_LIMIT);
+    }
+
+    /**
+     * The first displayable card among the next {@code scanLimit} due cards of the deck, or null if they all
+     * have to be skipped.
+     */
+    @SuppressLint("Range,DirectSystemCurrentTimeMillisUsage")
+    public CardInfo queryCurrentScheduledCard(long deckID, int scanLimit) {
         // Log.d(TAG, "QueryForCurrentCard");
         String[] deckArguments = new String[deckID == -1 ? 1 : 2];
         String deckSelector = "limit=?";
-        deckArguments[0] = "" + 1;
+        // Fetch several due cards so the ones we can't display (sound in the question) can be skipped.
+        deckArguments[0] = "" + scanLimit;
         if (deckID != -1) {
             deckSelector += ",deckID=?";
             deckArguments[1] = "" + deckID;
@@ -256,18 +275,80 @@ public class AnkiDroidHelper {
                             if (specificCardCursor != null) {
                                 specificCardCursor.close();
                             }
-                            return null;
-                        } else {
-                            card.a = specificCardCursor.getString(specificCardCursor.getColumnIndex(FlashCardsContract.Card.ANSWER_PURE));
-                            card.q = specificCardCursor.getString(specificCardCursor.getColumnIndex(FlashCardsContract.Card.QUESTION_SIMPLE));
-                            specificCardCursor.close();
+                            continue;
                         }
+                        card.a = specificCardCursor.getString(specificCardCursor.getColumnIndex(FlashCardsContract.Card.ANSWER_PURE));
+                        card.q = specificCardCursor.getString(specificCardCursor.getColumnIndex(FlashCardsContract.Card.QUESTION_SIMPLE));
+                        specificCardCursor.close();
+
+                        if (isDisplayable(card)) {
+                            return card;
+                        }
+                        Log.i("Notifications", "skipping card that can't be displayed, noteID: " + card.noteID + ", ord: " + card.cardOrd);
                     }
-                    return cards.get(0);
+                    Log.i("Notifications", "no displayable card among the next " + cards.size() + " due cards");
                 }
             }
         }
         return null;
+    }
+
+    /**
+     * Whether the card can be shown in the notification and on the lock screen.
+     * Cards whose question plays a sound are skipped for now; they stay due in AnkiDroid.
+     */
+    static boolean isDisplayable(CardInfo card) {
+        return !CardText.hasSound(card.q) && !CardText.clean(card.q).isEmpty();
+    }
+
+    /**
+     * The next card to review: the first displayable due card of the first deck that has one, in the given order.
+     * Each deck is scanned up to its number of due cards (learning + review + new), so it is only passed over
+     * once every due card in it has been skipped, or when nothing is due. Returns null when no selected deck
+     * has a card to show.
+     */
+    public CardInfo queryNextCard(List<Long> deckIds) {
+        Map<Long, int[]> counts = getDeckCounts();
+        return DeckScanner.findNextCard(
+                deckIds,
+                deckId -> {
+                    int[] deckCounts = counts.get(deckId);
+                    return deckCounts == null ? null : deckCounts[0] + deckCounts[1] + deckCounts[2];
+                },
+                (deckId, scanLimit) -> {
+                    CardInfo card = queryCurrentScheduledCard(deckId, scanLimit);
+                    if (card != null) {
+                        card.deckId = deckId;
+                    } else {
+                        Log.i("Notifications", "deck " + deckId + ": no displayable card among " + scanLimit + " due cards");
+                    }
+                    return card;
+                });
+    }
+
+    /**
+     * Due counts of every deck, as {learn, review, new}, by deck ID. Empty if they can't be read.
+     */
+    public Map<Long, int[]> getDeckCounts() {
+        Map<Long, int[]> counts = new HashMap<>();
+        if (!isPermissionGranted()) {
+            return counts;
+        }
+        String[] projection = {FlashCardsContract.Deck.DECK_ID, FlashCardsContract.Deck.DECK_COUNTS};
+        try (Cursor cursor = mContext.getContentResolver().query(FlashCardsContract.Deck.CONTENT_ALL_URI, projection, null, null, null)) {
+            if (cursor == null) {
+                return counts;
+            }
+            int idColumn = cursor.getColumnIndexOrThrow(FlashCardsContract.Deck.DECK_ID);
+            int countsColumn = cursor.getColumnIndexOrThrow(FlashCardsContract.Deck.DECK_COUNTS);
+            while (cursor.moveToNext()) {
+                JSONArray json = new JSONArray(cursor.getString(countsColumn));
+                counts.put(cursor.getLong(idColumn), new int[]{json.getInt(0), json.getInt(1), json.getInt(2)});
+            }
+        } catch (JSONException | RuntimeException e) {
+            Log.e("AnkiDroidHelper", "Could not read deck counts", e);
+        }
+        return counts;
     }
 
     public void reviewCard(long noteID, int cardOrd, long cardStartTime, int ease) {
