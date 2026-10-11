@@ -115,9 +115,9 @@ class CardWallpaperService : WallpaperService() {
 
         private fun currentQuestion(): String {
             val state = AnkiDroidHelper(this@CardWallpaperService).storedState
-                ?: return "Select a deck in AnkiDroid Companion"
+                ?: return getString(R.string.wallpaper_not_started)
             if (state.noteID == -1L && state.cardOrd == -1) {
-                return "Congrats! You've finished the deck!"
+                return getString(R.string.all_cards_done)
             }
             return CardText.clean(state.question)
         }

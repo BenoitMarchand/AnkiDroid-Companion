@@ -44,8 +44,10 @@ public class AnkiDroidHelper {
 
     public static final String KEY_CURRENT_STATE = "CURRENT_STATE";
 
-    /** How many due cards to look through for one that can be displayed. */
-    private static final int CARD_SCAN_LIMIT = 50;
+    /** How many due cards to look through for one that can be displayed, when the deck's due count is unknown. */
+    private static final int DEFAULT_SCAN_LIMIT = 50;
+    /** Upper bound of the scan, to keep a huge deck from making the query too slow. */
+    private static final int MAX_SCAN_LIMIT = 500;
 
     private AddContentApi mApi;
     private Context mContext;
@@ -195,11 +197,20 @@ public class AnkiDroidHelper {
 
     @SuppressLint("Range,DirectSystemCurrentTimeMillisUsage")
     public CardInfo queryCurrentScheduledCard(long deckID) {
+        return queryCurrentScheduledCard(deckID, DEFAULT_SCAN_LIMIT);
+    }
+
+    /**
+     * The first displayable card among the next {@code scanLimit} due cards of the deck, or null if they all
+     * have to be skipped.
+     */
+    @SuppressLint("Range,DirectSystemCurrentTimeMillisUsage")
+    public CardInfo queryCurrentScheduledCard(long deckID, int scanLimit) {
         // Log.d(TAG, "QueryForCurrentCard");
         String[] deckArguments = new String[deckID == -1 ? 1 : 2];
         String deckSelector = "limit=?";
         // Fetch several due cards so the ones we can't display (sound in the question) can be skipped.
-        deckArguments[0] = "" + CARD_SCAN_LIMIT;
+        deckArguments[0] = "" + scanLimit;
         if (deckID != -1) {
             deckSelector += ",deckID=?";
             deckArguments[1] = "" + deckID;
@@ -292,15 +303,29 @@ public class AnkiDroidHelper {
 
     /**
      * The next card to review: the first displayable due card of the first deck that has one, in the given order.
-     * A deck is passed over when it has no due card left, or only cards that can't be displayed.
+     * Each deck is scanned up to its number of due cards (learning + review + new), so it is only passed over
+     * once every due card in it has been skipped, or when nothing is due. Returns null when no selected deck
+     * has a card to show.
      */
     public CardInfo queryNextCard(List<Long> deckIds) {
+        Map<Long, int[]> counts = getDeckCounts();
         for (long deckId : deckIds) {
-            CardInfo card = queryCurrentScheduledCard(deckId);
+            int scanLimit = DEFAULT_SCAN_LIMIT;
+            int[] deckCounts = counts.get(deckId);
+            if (deckCounts != null) {
+                int due = deckCounts[0] + deckCounts[1] + deckCounts[2];
+                if (due == 0) {
+                    Log.i("Notifications", "deck " + deckId + ": nothing due, moving to the next deck");
+                    continue;
+                }
+                scanLimit = Math.min(due, MAX_SCAN_LIMIT);
+            }
+            CardInfo card = queryCurrentScheduledCard(deckId, scanLimit);
             if (card != null) {
                 card.deckId = deckId;
                 return card;
             }
+            Log.i("Notifications", "deck " + deckId + ": all " + scanLimit + " due cards skipped, moving to the next deck");
         }
         return null;
     }

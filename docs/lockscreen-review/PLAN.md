@@ -48,7 +48,7 @@ How to test the spike (`CardWallpaperService.kt`, written but **not yet built or
 - [x] 1.4 Skip cards whose question has sound: look through the next 50 due cards and use the first one without. Skipped cards stay due in AnkiDroid. Sound and `[[type:...]]` tags are hidden from the displayed text.
 - [x] 1.6 Several decks in priority order: cards come from the first selected deck that has a displayable due card, then the next deck, and so on.
 - [x] 1.7 Modern main screen in Jetpack Compose (Material 3, dynamic colors, deck list with due counts and reordering).
-- [ ] 1.5 When only non-displayable cards remain, show "Remaining cards need AnkiDroid" instead of "Congrats! You've finished the deck!".
+- [x] 1.5 Each deck is scanned up to its due count (learning + review + new, max 500): it is passed over only once all its due cards were skipped, or when nothing is due. When no selected deck has a card: "Bravo! You've finished all cards in the selected decks." (notification, lock screen, app).
 
 ## Phase 2: Lock-screen notification (~1 day)
 

@@ -46,12 +46,12 @@ class Notifications {
                 .setSilent(isSilent)
                 .setOngoing(true)
         } else {
-            collapsedView.setTextViewText(R.id.textViewCollapsedHeader, "Congrats! You've finished the deck!")
+            collapsedView.setTextViewText(R.id.textViewCollapsedHeader, context.getString(R.string.all_cards_done))
             collapsedView.setTextViewText(R.id.textViewCollapsedTitle, "Anki")
 
             val expandedView = RemoteViews(context.packageName, R.layout.notification_expanded_empty)
-            expandedView.setTextViewText(R.id.textViewEmptyExpandedHeader, "Congrats! You've finished the deck!")
-            expandedView.setTextViewText(R.id.textViewEmptyExpandedContent, "New notifications will arrive when it's time to study!")
+            expandedView.setTextViewText(R.id.textViewEmptyExpandedHeader, context.getString(R.string.all_cards_done))
+            expandedView.setTextViewText(R.id.textViewEmptyExpandedContent, context.getString(R.string.all_cards_done_next))
 
             builder = NotificationCompat.Builder(context, "channel_id")
                 .setSmallIcon(R.drawable.ic_notification)
