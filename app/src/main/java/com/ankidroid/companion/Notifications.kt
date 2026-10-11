@@ -145,6 +145,8 @@ class Notifications {
     private fun createIntent(context: Context, action: String): PendingIntent {
         val intent = Intent(context, NotificationReceiver::class.java)
         intent.action = action
+        // A tap must be handled right away, not wait in the background broadcast queue (busy after boot).
+        intent.addFlags(Intent.FLAG_RECEIVER_FOREGROUND)
         return PendingIntent.getBroadcast(context, 0, intent, PendingIntent.FLAG_IMMUTABLE)
     }
 
