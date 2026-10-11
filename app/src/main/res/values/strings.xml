@@ -26,6 +26,7 @@
     <string name="deck_counts">%1$d new · %2$d learning · %3$d review</string>
     <string name="move_up">Move up</string>
     <string name="move_down">Move down</string>
+    <string name="app_version">%1$s · version %2$s</string>
     <string name="lock_screen">Lock screen</string>
     <string name="lock_screen_explanation">Show the current card on your lock screen. Your home screen wallpaper is not changed.</string>
 

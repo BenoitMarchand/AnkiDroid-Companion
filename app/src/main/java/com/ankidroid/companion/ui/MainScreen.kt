@@ -59,6 +59,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -260,7 +261,25 @@ private fun ReadyContent(
                 }
             }
         }
+        item(key = "version") { AppVersion() }
     }
+}
+
+/** The installed version, from `versionName` in app/build.gradle.kts. */
+@Composable
+private fun AppVersion() {
+    val context = LocalContext.current
+    val versionName = remember {
+        @Suppress("DEPRECATION") // The flags overload needs API 33.
+        context.packageManager.getPackageInfo(context.packageName, 0).versionName
+    }
+    Text(
+        stringResource(R.string.app_version, stringResource(R.string.app_name), versionName ?: "?"),
+        modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        textAlign = TextAlign.Center,
+    )
 }
 
 @Composable
