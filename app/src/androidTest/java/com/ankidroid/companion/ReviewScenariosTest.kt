@@ -185,9 +185,11 @@ class ReviewScenariosTest {
         CardStateController.showNextCard(context, silent = true, notifyIfNone = true)
     }
 
-    /** A notification button: the broadcast goes through the real receiver. */
+    /** A notification button: the broadcast goes through the real receiver, on the foreground queue like a tap. */
     private fun press(action: String) {
-        context.sendBroadcast(Intent(context, NotificationReceiver::class.java).setAction(action))
+        context.sendBroadcast(
+            Intent(context, NotificationReceiver::class.java).setAction(action).addFlags(Intent.FLAG_RECEIVER_FOREGROUND)
+        )
     }
 
     private fun storedState(): StoredState =
