@@ -39,6 +39,33 @@
     <string name="notification_permission_denied">Notifications are disabled: cards can\'t be reviewed from the notification. Enable them in the app\'s system settings.</string>
     <string name="permission_not_granted">Permission to read AnkiDroid cards was not granted.</string>
 
+    <!-- Wallpaper settings -->
+    <string name="wallpaper_settings_title">Lock screen style</string>
+    <string name="customize_wallpaper">Customize</string>
+    <string name="back">Back</string>
+    <string name="wallpaper_background">Background</string>
+    <string name="wallpaper_choose_image">Choose an image</string>
+    <string name="wallpaper_remove_image">Remove image</string>
+    <string name="wallpaper_image_error">This image can\'t be used.</string>
+    <string name="wallpaper_text_color">Text color</string>
+    <string name="wallpaper_text_size">Text size</string>
+    <string name="text_size_small">Small</string>
+    <string name="text_size_medium">Medium</string>
+    <string name="text_size_large">Large</string>
+    <string name="wallpaper_preview_question">¿Dónde está la biblioteca?</string>
+    <string name="wallpaper_preview_deck">Example deck</string>
+
+    <!-- Setup checklist -->
+    <string name="setup_title">Finish setting up</string>
+    <string name="setup_notifications">Allow notifications</string>
+    <string name="setup_notifications_detail">Needed to review cards from the notification.</string>
+    <string name="setup_wallpaper">Show cards on the lock screen</string>
+    <string name="setup_wallpaper_detail">Set the AnkiDroid Companion card as your lock screen wallpaper.</string>
+    <string name="setup_battery">Keep checking for new cards</string>
+    <string name="setup_battery_detail">Recommended: exclude the app from battery optimization, so new cards show up on time.</string>
+    <string name="setup_fix">Fix</string>
+    <string name="lock_screen_sensitive_tip">Answer hidden on the lock screen? Allow sensitive notifications in your phone\'s notification settings.</string>
+
     <!-- Notification -->
     <string name="notification_channel_name">Cards to review</string>
     <string name="notification_channel_description">The current card, with its answer and the review buttons. Shown on the lock screen.</string>

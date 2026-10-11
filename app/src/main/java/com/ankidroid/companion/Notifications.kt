@@ -16,6 +16,7 @@ class Notifications {
     companion object Factory {
         /** Shown in full on the lock screen, so a card can be answered without unlocking. */
         const val CHANNEL_ID = "lockscreen_review"
+        const val NOTIFICATION_ID = 1
         private const val LEGACY_CHANNEL_ID = "channel_id"
 
         fun create(): Notifications = Notifications()
@@ -45,6 +46,7 @@ class Notifications {
 
         // There is a card to show, show a notification with the expanded view.
         if (card != null) {
+            LockSession.onNotificationPosted(context)
             val question = CardText.clean(card.q)
             val answer = CardText.clean(card.a)
             collapsedView.setTextViewText(R.id.textViewCollapsedHeader, question)
@@ -98,8 +100,8 @@ class Notifications {
         val notificationManager: NotificationManager =
             context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
-        notificationManager.cancel(1) // Cancel the current notification before sending a new one
-        notificationManager.notify(1, notification)
+        notificationManager.cancel(NOTIFICATION_ID) // Cancel the current notification before sending a new one
+        notificationManager.notify(NOTIFICATION_ID, notification)
     }
 
     private fun createIntent(context: Context, action: String): PendingIntent {

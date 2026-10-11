@@ -25,6 +25,11 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity
+            android:name=".WallpaperSettingsActivity"
+            android:exported="true"
+            android:label="@string/wallpaper_settings_title"
+            android:theme="@style/Theme.AnkiNotifications" />
         <receiver android:name=".NotificationReceiver"/>
         <service
             android:name=".CardWallpaperService"

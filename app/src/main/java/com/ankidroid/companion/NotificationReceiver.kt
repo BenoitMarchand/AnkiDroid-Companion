@@ -44,6 +44,7 @@ class NotificationReceiver : BroadcastReceiver() {
                 return
             }
             anki.reviewCard(localState.noteID, localState.cardOrd, localState.cardStartTime, ease)
+            LockSession.onAnswered(context)
         }
 
         CardStateController.showNextCard(context, silent = true, notifyIfNone = true)

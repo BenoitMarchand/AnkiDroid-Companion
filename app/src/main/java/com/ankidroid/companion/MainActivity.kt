@@ -1,11 +1,15 @@
 package com.ankidroid.companion
 
 import android.Manifest
+import android.app.NotificationManager
+import android.app.WallpaperManager
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.os.PowerManager
+import android.provider.Settings
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -16,6 +20,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.work.ExistingPeriodicWorkPolicy
@@ -26,6 +31,7 @@ import com.ankidroid.companion.ui.DeckItem
 import com.ankidroid.companion.ui.MainScreen
 import com.ankidroid.companion.ui.MainScreenActions
 import com.ankidroid.companion.ui.ScreenState
+import com.ankidroid.companion.ui.SetupStatus
 import com.ankidroid.companion.ui.theme.AnkiNotificationsTheme
 import com.ichi2.anki.api.AddContentApi
 import kotlinx.coroutines.Dispatchers
@@ -41,6 +47,7 @@ class MainActivity : ComponentActivity() {
     private val selectedDeckIds = mutableStateListOf<Long>()
     private var currentCard by mutableStateOf<CurrentCard>(CurrentCard.NotStarted)
     private var isStarting by mutableStateOf(false)
+    private var setupStatus by mutableStateOf(SetupStatus())
 
     private val permissionsLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { results ->
@@ -63,6 +70,9 @@ class MainActivity : ComponentActivity() {
             onGrantPermission = ::requestMissingPermissions,
             onRetry = ::refresh,
             onOpenWallpaperSettings = ::openWallpaperSettings,
+            onOpenWallpaperStyle = { startActivity(Intent(this, WallpaperSettingsActivity::class.java)) },
+            onOpenNotificationSettings = ::openNotificationSettings,
+            onOpenBatterySettings = ::openBatterySettings,
         )
         setContent {
             AnkiNotificationsTheme {
@@ -73,6 +83,7 @@ class MainActivity : ComponentActivity() {
                     currentCard = currentCard,
                     isStarting = isStarting,
                     lockOnlyWallpaper = Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE,
+                    setup = setupStatus,
                     actions = actions,
                 )
             }
@@ -103,6 +114,7 @@ class MainActivity : ComponentActivity() {
         ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
 
     private fun refresh() {
+        setupStatus = readSetupStatus()
         if (!AnkiDroidHelper.isApiAvailable(this)) {
             screenState = ScreenState.ApiUnavailable
             return
@@ -138,7 +150,7 @@ class MainActivity : ComponentActivity() {
 
     private fun readCurrentCard(anki: AnkiDroidHelper): CurrentCard {
         val state = anki.storedState ?: return CurrentCard.NotStarted
-        if (state.noteID == -1L && state.cardOrd == -1) {
+        if (!state.hasCard()) {
             return CurrentCard.NoneDue
         }
         val question = CardText.clean(state.question)
@@ -188,6 +200,40 @@ class MainActivity : ComponentActivity() {
             ExistingPeriodicWorkPolicy.REPLACE,  // Use REPLACE to ensure only one instance is scheduled
             periodicWorkRequest
         )
+    }
+
+    private fun readSetupStatus(): SetupStatus {
+        val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+        val channel = notificationManager.getNotificationChannel(Notifications.CHANNEL_ID)
+        val notificationsEnabled = NotificationManagerCompat.from(this).areNotificationsEnabled() &&
+            channel?.importance != NotificationManager.IMPORTANCE_NONE
+
+        val wallpaperManager = WallpaperManager.getInstance(this)
+        // On Android 14+ the lock screen can have its own live wallpaper; null means it shows the home one.
+        val lockWallpaper = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            wallpaperManager.getWallpaperInfo(WallpaperManager.FLAG_LOCK) ?: wallpaperManager.wallpaperInfo
+        } else {
+            wallpaperManager.wallpaperInfo
+        }
+        val wallpaperActive = lockWallpaper?.serviceName == CardWallpaperService::class.java.name
+
+        val powerManager = getSystemService(POWER_SERVICE) as PowerManager
+        return SetupStatus(
+            notificationsEnabled = notificationsEnabled,
+            wallpaperActive = wallpaperActive,
+            batteryUnrestricted = powerManager.isIgnoringBatteryOptimizations(packageName),
+        )
+    }
+
+    private fun openNotificationSettings() {
+        startActivity(
+            Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+        )
+    }
+
+    private fun openBatterySettings() {
+        // The list of apps and their battery optimization; asking directly needs a permission Play restricts.
+        startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
     }
 
     private fun openWallpaperSettings() {
