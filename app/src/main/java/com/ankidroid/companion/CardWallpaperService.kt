@@ -25,16 +25,70 @@ import androidx.core.content.ContextCompat
  * as the home wallpaper (older Android versions), it only draws the card while the
  * keyguard is shown and the background otherwise.
  *
- * The real (non-preview) engine also drives [LockSession]: an unused notification is removed on
- * unlock and posted again at the next lock.
+ * The service also drives [LockSession] (an unused notification is removed on unlock and posted again at the
+ * next lock). The screen events are received once per service, not per engine: the system can run several
+ * engines at the same time (a preview next to the real one, or an old engine not destroyed yet), and each
+ * event must be handled only once.
  */
 class CardWallpaperService : WallpaperService() {
 
+    private val engines = mutableSetOf<CardEngine>()
+
+    private val screenReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            val action = intent?.action ?: return
+            val active = engines.filter { !it.isPreview }
+            Log.i(TAG, "screen event $action, ${active.size} active engine(s)")
+            // Only the wallpaper actually set follows the lock session, not a preview in the wallpaper picker.
+            if (active.isEmpty()) return
+            when (action) {
+                // The screen turning off means the device is about to be locked:
+                // prepare the card now so it is already there when the screen turns on.
+                Intent.ACTION_SCREEN_OFF -> onLocked()
+                Intent.ACTION_USER_PRESENT -> onUnlocked()
+            }
+            active.forEach { it.onScreenEvent(action) }
+        }
+    }
+
+    override fun onCreate() {
+        super.onCreate()
+        val filter = IntentFilter().apply {
+            addAction(Intent.ACTION_SCREEN_OFF)
+            addAction(Intent.ACTION_SCREEN_ON)
+            addAction(Intent.ACTION_USER_PRESENT)
+        }
+        ContextCompat.registerReceiver(this, screenReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
+    }
+
+    override fun onDestroy() {
+        unregisterReceiver(screenReceiver)
+        super.onDestroy()
+    }
+
     override fun onCreateEngine(): Engine = CardEngine()
+
+    private fun onLocked() {
+        // AnkiDroid doesn't report changes: check the displayed card is still the right one (throttled).
+        CardStateController.syncOnLock(this)
+        if (!LockSession.onLocked(this)) return
+        // The notification was removed at the last unlock: show the current card again.
+        val state = AnkiDroidHelper(this).storedState ?: return
+        if (!state.hasCard()) return
+        Log.i(TAG, "posting the card notification again")
+        Notifications.create().showNotification(this, state.toCardInfo(), state.deckName, true)
+    }
+
+    private fun onUnlocked() {
+        val hasCard = AnkiDroidHelper(this).storedState?.hasCard() == true
+        if (LockSession.onUnlocked(this, hasCard)) {
+            Log.i(TAG, "card not answered while locked, removing the notification")
+            (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).cancel(Notifications.NOTIFICATION_ID)
+        }
+    }
 
     inner class CardEngine : Engine() {
         private var showCard = false
-        private var receiverRegistered = false
         private val renderer = CardRenderer(resources.displayMetrics.density)
         private var style = WallpaperStyle()
         private var background: Bitmap? = null
@@ -42,24 +96,14 @@ class CardWallpaperService : WallpaperService() {
         /** Identifies this engine in the logs: the system can run a preview engine next to the real one. */
         private val engineId get() = "${Integer.toHexString(System.identityHashCode(this))}${if (isPreview) " (preview)" else ""}"
 
-        private val screenReceiver = object : BroadcastReceiver() {
-            override fun onReceive(context: Context?, intent: Intent?) {
-                Log.i(TAG, "engine $engineId: screen event ${intent?.action}")
-                when (intent?.action) {
-                    // The screen turning off means the device is about to be locked:
-                    // prepare the card now so it is already there when the screen turns on.
-                    Intent.ACTION_SCREEN_OFF -> {
-                        showCard = true
-                        onLocked()
-                    }
-                    Intent.ACTION_USER_PRESENT -> {
-                        showCard = false
-                        onUnlocked()
-                    }
-                    Intent.ACTION_SCREEN_ON -> showCard = isLocked()
-                }
-                draw()
+        fun onScreenEvent(action: String) {
+            Log.i(TAG, "engine $engineId: screen event $action")
+            showCard = when (action) {
+                Intent.ACTION_SCREEN_OFF -> true
+                Intent.ACTION_USER_PRESENT -> false
+                else -> isLocked()
             }
+            draw()
         }
 
         private val stateListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
@@ -77,19 +121,7 @@ class CardWallpaperService : WallpaperService() {
         override fun onCreate(surfaceHolder: SurfaceHolder) {
             super.onCreate(surfaceHolder)
             showCard = isLocked()
-            // Previews (wallpaper picker) always show the card and don't need to follow lock/unlock events;
-            // listening there too made every event handled twice.
-            if (!isPreview) {
-                val filter = IntentFilter().apply {
-                    addAction(Intent.ACTION_SCREEN_OFF)
-                    addAction(Intent.ACTION_SCREEN_ON)
-                    addAction(Intent.ACTION_USER_PRESENT)
-                }
-                ContextCompat.registerReceiver(
-                    this@CardWallpaperService, screenReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED
-                )
-                receiverRegistered = true
-            }
+            engines.add(this)
             statePrefs.registerOnSharedPreferenceChangeListener(stateListener)
             WallpaperStyle.prefs(this@CardWallpaperService).registerOnSharedPreferenceChangeListener(styleListener)
             loadStyle()
@@ -98,10 +130,7 @@ class CardWallpaperService : WallpaperService() {
 
         override fun onDestroy() {
             Log.i(TAG, "engine $engineId destroyed")
-            if (receiverRegistered) {
-                unregisterReceiver(screenReceiver)
-                receiverRegistered = false
-            }
+            engines.remove(this)
             statePrefs.unregisterOnSharedPreferenceChangeListener(stateListener)
             WallpaperStyle.prefs(this@CardWallpaperService).unregisterOnSharedPreferenceChangeListener(styleListener)
             super.onDestroy()
@@ -170,25 +199,6 @@ class CardWallpaperService : WallpaperService() {
             // A card stored by an older version may have nothing left to show (e.g. a sound-only question).
             val question = CardText.clean(state.question).ifEmpty { return CardContent(getString(R.string.wallpaper_not_started)) }
             return CardContent(question, state.deckName.replace("::", " › "))
-        }
-
-        private fun onLocked() {
-            // AnkiDroid doesn't report changes: check the displayed card is still the right one (throttled).
-            CardStateController.syncOnLock(this@CardWallpaperService)
-            if (!LockSession.onLocked(this@CardWallpaperService)) return
-            // The notification was removed at the last unlock: show the current card again.
-            val state = AnkiDroidHelper(this@CardWallpaperService).storedState ?: return
-            if (!state.hasCard()) return
-            Log.i(TAG, "posting the card notification again")
-            Notifications.create().showNotification(this@CardWallpaperService, state.toCardInfo(), state.deckName, true)
-        }
-
-        private fun onUnlocked() {
-            val hasCard = AnkiDroidHelper(this@CardWallpaperService).storedState?.hasCard() == true
-            if (LockSession.onUnlocked(this@CardWallpaperService, hasCard)) {
-                Log.i(TAG, "card not answered while locked, removing the notification")
-                (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).cancel(Notifications.NOTIFICATION_ID)
-            }
         }
     }
 
