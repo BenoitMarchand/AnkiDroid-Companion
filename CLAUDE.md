@@ -8,7 +8,8 @@ AnkiDroid Companion is a small Android app that lets the user review AnkiDroid f
 
 ## Repository & current work
 
-- `origin` = fork `BenoitMarchand/AnkiDroid-Companion` (push here). `upstream` = `unalkalkan/AnkiDroid-Companion`, the original repo, which we don't own: never push there or open issues there for internal tasks.
+- `origin` = the developer's personal fork (push here). `upstream` = `unalkalkan/AnkiDroid-Companion`, the original repo, which we don't own: never push there or open issues there for internal tasks.
+- Don't put personal information in committed files (names, accounts, emails, device models, fork URLs).
 - Feature in progress: **lock screen review**. The plan, task checklist, open decisions and findings are in `docs/lockscreen-review/PLAN.md`. Read it before working on the feature, and tick tasks / add notes there as work progresses.
 
 ## Build & run

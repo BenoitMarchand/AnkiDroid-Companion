@@ -5,4 +5,5 @@ public class StoredState {
     int cardOrd;
     long noteID;
     long cardStartTime;
+    String question = "";
 }

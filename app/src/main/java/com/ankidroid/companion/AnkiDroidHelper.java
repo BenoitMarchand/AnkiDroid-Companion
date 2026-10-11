@@ -38,9 +38,9 @@ public class AnkiDroidHelper {
             FlashCardsContract.Card.ANSWER_PURE,
             FlashCardsContract.Card.QUESTION_SIMPLE};
     private static final String DECK_REF_DB = "com.ichi2.anki.api.decks";
-    private static final String STATE_DB = "com.ichi2.anki.api.state";
+    public static final String STATE_DB = "com.ichi2.anki.api.state";
 
-    private static final String KEY_CURRENT_STATE = "CURRENT_STATE";
+    public static final String KEY_CURRENT_STATE = "CURRENT_STATE";
 
     private AddContentApi mApi;
     private Context mContext;
@@ -156,6 +156,7 @@ public class AnkiDroidHelper {
         message.put("note_id", card.noteID);
         message.put("card_ord", card.cardOrd);
         message.put("start_time", card.cardStartTime);
+        message.put("question", card.q);
         JSONObject js = new JSONObject(message);
 
         cardsDb.edit().putString(KEY_CURRENT_STATE, js.toString()).apply();
@@ -178,6 +179,7 @@ public class AnkiDroidHelper {
             state.noteID = json.getLong("note_id");
             state.cardOrd = json.getInt("card_ord");
             state.cardStartTime = json.getLong("start_time");
+            state.question = json.optString("question", "");
             return state;
         } catch (JSONException e) {
             // Log.e(TAG, "JSONException " + e);

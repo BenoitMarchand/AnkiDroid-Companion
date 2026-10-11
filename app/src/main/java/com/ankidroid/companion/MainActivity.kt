@@ -2,7 +2,10 @@ package com.ankidroid.companion
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.WallpaperManager
+import android.content.ComponentName
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.util.Log
@@ -84,6 +87,20 @@ class MainActivity : ComponentActivity() {
         button.setOnClickListener{
             onClickRefresh()
         }
+
+        val wallpaperButton = findViewById<Button>(R.id.mainWallpaperButton)
+        wallpaperButton.visibility = View.VISIBLE
+        wallpaperButton.setOnClickListener {
+            openWallpaperPicker()
+        }
+    }
+
+    private fun openWallpaperPicker() {
+        val intent = Intent(WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER).putExtra(
+            WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT,
+            ComponentName(this, CardWallpaperService::class.java)
+        )
+        startActivity(intent)
     }
 
     private fun explainError(errorText:String) {
@@ -92,6 +109,7 @@ class MainActivity : ComponentActivity() {
         text.visibility = View.VISIBLE
         findViewById<Spinner>(R.id.spinner1).visibility = View.GONE
         findViewById<Button>(R.id.mainRefreshButton).visibility = View.GONE
+        findViewById<Button>(R.id.mainWallpaperButton).visibility = View.GONE
     }
 
     override fun onRequestPermissionsResult(

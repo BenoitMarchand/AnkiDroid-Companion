@@ -6,5 +6,8 @@
     <string name="easy">Easy</string>
     <string name="refresh">Refresh</string>
     <string name="success">Success</string>
+    <string name="wallpaper_name">AnkiDroid Companion card</string>
+    <string name="wallpaper_description">Shows the card to review on the lock screen.</string>
+    <string name="set_lock_wallpaper">Set lock screen wallpaper</string>
     <string name="permission_not_granted">Permission to read AnkiDroid cards was not granted.</string>
 </resources>
