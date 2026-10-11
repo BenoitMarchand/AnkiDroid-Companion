@@ -56,7 +56,7 @@ object LockSession {
         return hide
     }
 
-    /** A card was answered (from the notification or the review screen). Returns what to do next. */
+    /** A card was answered from the notification. Returns what to do next. */
     fun onAnswered(context: Context): AfterAnswer {
         val after = afterAnswer(CardWallpaperService.isActive(context), ReviewSettings.severalInARow(context))
         if (after == AfterAnswer.WAIT_FOR_NEXT_LOCK) {

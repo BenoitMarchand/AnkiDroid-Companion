@@ -9,7 +9,7 @@
     <color name="white">#FFFFFFFF</color>
     <color name="primaryText">#FF000000</color>
 
-    <!-- Answer buttons (notification and review screen): soft Material 3 tones, one per ease. -->
+    <!-- Answer buttons (notification): soft Material 3 tones, one per ease. -->
     <color name="again_button_bg">#FFFFDAD6</color>
     <color name="again_button_text">#FF410002</color>
     <color name="hard_button_bg">#FFDDE3EA</color>

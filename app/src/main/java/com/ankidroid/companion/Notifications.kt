@@ -88,8 +88,8 @@ class Notifications {
                 .setCustomContentView(collapsedView)
                 .setCustomBigContentView(expandedView)
                 .setContentTitle(title)
-                // Tapping the notification opens the review screen, shown over the lock screen.
-                .setContentIntent(reviewScreenIntent(context))
+                // No tap action: on the lock screen, tapping expands the notification in place, while opening
+                // anything would ask to unlock first.
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .setSilent(isSilent)
                 .setOnlyAlertOnce(!replace)
@@ -148,9 +148,4 @@ class Notifications {
         return PendingIntent.getBroadcast(context, 0, intent, PendingIntent.FLAG_IMMUTABLE)
     }
 
-    private fun reviewScreenIntent(context: Context): PendingIntent {
-        val intent = Intent(context, ReviewActivity::class.java)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-        return PendingIntent.getActivity(context, 0, intent, PendingIntent.FLAG_IMMUTABLE)
-    }
 }

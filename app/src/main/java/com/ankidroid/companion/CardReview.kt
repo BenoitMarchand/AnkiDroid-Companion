@@ -4,7 +4,7 @@ import android.content.Context
 import android.util.Log
 
 /**
- * Reviewing the displayed card, from the notification buttons or from the review screen over the lock screen.
+ * Reviewing the displayed card from the notification buttons.
  * Does ContentProvider I/O: call it off the main thread.
  */
 object CardReview {
