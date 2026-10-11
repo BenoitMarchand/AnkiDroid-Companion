@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dynamic colors: "Show answer" follows the wallpaper, like the app. -->
+    <color name="show_answer_button_bg">@android:color/system_accent1_100</color>
+    <color name="show_answer_button_text">@android:color/system_accent1_900</color>
+</resources>

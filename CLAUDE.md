@@ -50,8 +50,10 @@ Single module `:app`, package `com.ankidroid.companion`, mixed Java + Kotlin. Th
 | `DeckScanner.kt` | Pure logic of the deck order: first deck with a displayable card, each deck scanned progressively (1 card, 10, then up to its due count, max 500: the query cost grows with the scan size), decks with nothing due skipped. Also `isDue()`. |
 | `AnswerButtons.kt` | Which answer buttons a card shows and the ease each one sends, from the card's button count (2, 3 or 4). |
 | `CardText.kt` | Turns card HTML into displayed text (strips HTML, sound and `[[type:...]]` tags) and detects sound in a question. |
-| `Notifications.kt` | Creates the `lockscreen_review` channel (public on the lock screen) and builds the single notification (ID `1`) with custom `RemoteViews` (`notification_collapsed`, `notification_expanded_full`, `notification_expanded_empty`). Buttons send `ACTION_BUTTON_1..4` broadcasts; only the buttons the card has are shown. |
-| `NotificationReceiver.kt` | Handles the button broadcasts on a background thread (`goAsync()`): reviews the stored card with ease 1–4 (only if AnkiDroid still has it due, to avoid a double review), then `CardStateController.showNextCard()`. |
+| `Notifications.kt` | Creates the `lockscreen_review` channel (public on the lock screen) and builds the single notification (ID `1`) with custom `RemoteViews` (`notification_collapsed`, `notification_expanded_full`, `notification_expanded_empty`). The expanded view shows the question and **Show answer**; once revealed, the answer and the answer buttons (`ACTION_BUTTON_1..4`; only the buttons the card has). Pill buttons in soft per-ease colors (`res/values*/colors.xml`, accent from `system_accent1_*` on Android 12+). Tapping the notification opens `ReviewActivity`. |
+| `NotificationReceiver.kt` | Handles the button broadcasts (`ACTION_SHOW_ANSWER`, `ACTION_BUTTON_1..4`) on a background thread (`goAsync()`) through `CardReview`. |
+| `CardReview.kt` | Reviewing the displayed card, shared by the notification and the review screen: `answer()` reviews it (only if AnkiDroid still has it due, to avoid a double review) then `CardStateController.showNextCard()`; `revealAnswer()` stores which card's answer is shown (prefs `com.ankidroid.companion.card_review`, keyed by card so it clears itself) and updates the notification in place. |
+| `ReviewActivity.kt` | Review screen opened by tapping the notification, shown over the lock screen (`setShowWhenLocked`): question, Show answer, answer buttons. |
 | `PeriodicWorker.kt` | WorkManager job (`"WORKER_ANKI"`, hourly, `PeriodicWorker.schedule()`): runs the sync, which also finds new cards after "Bravo". |
 | `CardWallpaperService.kt` | Live wallpaper for the lock screen: draws the current card with `CardRenderer`, redraws when `CURRENT_STATE` or the style changes, and drives `LockSession` from screen events (the only component that receives them). |
 | `CardRenderer.kt` / `CardLayout.kt` | Draws the card (background color or image, question, deck name). `CardLayout` is the pure geometry: text area, text size fitting. |
@@ -82,6 +84,8 @@ Cards are never skipped in AnkiDroid's scheduler: fetching due cards is read-onl
 - AnkiDroid queries are ContentProvider I/O: keep them off the main thread (coroutines on `Dispatchers.IO` in the activity, `goAsync()` in receivers).
 - PendingIntents must be `FLAG_IMMUTABLE` (targetSdk 31+). Distinct actions currently disambiguate the button intents; keep actions unique or use distinct request codes.
 - Implicit broadcasts (`SCREEN_OFF`, `SCREEN_ON`, `USER_PRESENT`) **cannot** be registered in the manifest on API 26+. They need a runtime-registered receiver inside a long-lived component (for example a foreground service).
-- Put user-facing strings in `res/values/strings.xml` (some older ones are still hard-coded in `Notifications.kt`).
+- Put user-facing strings in `res/values/strings.xml`.
+- RemoteViews layouts only accept some views (no plain `View`: use `FrameLayout` for a divider); lint checks it.
+- `am instrument` force-stops the app, and Android then resets a live wallpaper of a force-stopped app: after running instrumented tests, the card wallpaper must be selected again.
 - Logging uses `Log.i` with the tags `"Notifications"` and `"BackgroundService"`.
 - Match the existing style: Kotlin for new Android components. The Java classes may stay Java unless they're being refactored anyway.

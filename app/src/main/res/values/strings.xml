@@ -4,6 +4,11 @@
     <string name="hard">Hard</string>
     <string name="good">Good</string>
     <string name="easy">Easy</string>
+    <string name="show_answer">Show answer</string>
+    <string name="notification_title">Anki</string>
+    <string name="notification_title_deck">Anki • %1$s</string>
+    <string name="review_close">Close</string>
+    <string name="review_no_card">No card to review. Open AnkiDroid Companion and tap Start reviewing.</string>
     <string name="success">Success</string>
 
     <!-- Main screen -->

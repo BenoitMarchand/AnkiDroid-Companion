@@ -6,17 +6,19 @@
     android:orientation="vertical">
 
     <TextView
-        style="@style/TextAppearance.Compat.Notification.Title"
         android:id="@+id/textViewCollapsedTitle"
+        style="@style/TextAppearance.Compat.Notification.Title"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Anki" />
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:text="@string/notification_title" />
 
     <TextView
         android:id="@+id/textViewCollapsedHeader"
+        style="@style/TextAppearance.Compat.Notification"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Header"
-        android:textColor="@color/primaryText"
-        />
+        android:maxLines="1"
+        android:ellipsize="end" />
 </LinearLayout>

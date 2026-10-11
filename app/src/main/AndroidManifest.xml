@@ -31,6 +31,14 @@
             android:exported="true"
             android:label="@string/wallpaper_settings_title"
             android:theme="@style/Theme.AnkiNotifications" />
+        <!-- Opened from the card notification, over the lock screen (setShowWhenLocked in code: API 27+). -->
+        <activity
+            android:name=".ReviewActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTop"
+            android:taskAffinity=""
+            android:theme="@style/Theme.AnkiNotifications" />
         <receiver android:name=".NotificationReceiver"/>
         <receiver
             android:name=".BootReceiver"

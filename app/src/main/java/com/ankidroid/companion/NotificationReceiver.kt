@@ -6,16 +6,18 @@ import android.content.Intent
 import android.util.Log
 import kotlin.concurrent.thread
 
+/** Handles the notification buttons: "Show answer" and the answer buttons. */
 class NotificationReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context?, intent: Intent?) {
-        Log.i("Notifications", "onReceive called")
+        Log.i("Notifications", "onReceive called: ${intent?.action}")
         if (context == null)
             return
-        val button = when (intent?.action) {
-            "ACTION_BUTTON_1" -> AnswerButtons.AGAIN
-            "ACTION_BUTTON_2" -> AnswerButtons.HARD
-            "ACTION_BUTTON_3" -> AnswerButtons.GOOD
-            "ACTION_BUTTON_4" -> AnswerButtons.EASY
+        val task: (Context) -> Unit = when (intent?.action) {
+            Notifications.ACTION_SHOW_ANSWER -> CardReview::revealAnswer
+            "ACTION_BUTTON_1" -> { c -> CardReview.answer(c, AnswerButtons.AGAIN) }
+            "ACTION_BUTTON_2" -> { c -> CardReview.answer(c, AnswerButtons.HARD) }
+            "ACTION_BUTTON_3" -> { c -> CardReview.answer(c, AnswerButtons.GOOD) }
+            "ACTION_BUTTON_4" -> { c -> CardReview.answer(c, AnswerButtons.EASY) }
             else -> return
         }
 
@@ -24,35 +26,10 @@ class NotificationReceiver : BroadcastReceiver() {
         val appContext = context.applicationContext
         thread {
             try {
-                respondCard(appContext, button)
+                task(appContext)
             } finally {
                 pendingResult.finish()
             }
         }
-    }
-
-    private fun respondCard(context: Context, button: Int) {
-        Log.i("Notifications", "respondCard called")
-        val anki = AnkiDroidHelper(context)
-        val localState = anki.storedState
-
-        if (localState != null && localState.noteID != -1L) {
-            Log.i("Notifications", "localState.cardOrd: ${localState.cardOrd}, localState.noteID: ${localState.noteID}")
-            val ease = AnswerButtons.easeFor(button, localState.buttonCount)
-            if (ease == null) {
-                Log.w("Notifications", "button $button is not valid for a card with ${localState.buttonCount} buttons")
-                return
-            }
-            LockSession.onAnswered(context)
-            // The card may have been reviewed, buried or deleted in AnkiDroid since it was shown: answering it
-            // again would record a second review. Null means it couldn't be checked: answer as before.
-            if (anki.isCardDue(localState.deckId, localState.noteID, localState.cardOrd) == false) {
-                Log.i("Notifications", "card no longer due in AnkiDroid, not answering it")
-            } else {
-                anki.reviewCard(localState.noteID, localState.cardOrd, localState.cardStartTime, ease)
-            }
-        }
-
-        CardStateController.showNextCard(context, silent = true, notifyIfNone = true)
     }
 }

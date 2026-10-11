@@ -8,4 +8,18 @@
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
     <color name="primaryText">#FF000000</color>
+
+    <!-- Answer buttons (notification and review screen): soft Material 3 tones, one per ease. -->
+    <color name="again_button_bg">#FFFFDAD6</color>
+    <color name="again_button_text">#FF410002</color>
+    <color name="hard_button_bg">#FFDDE3EA</color>
+    <color name="hard_button_text">#FF161C22</color>
+    <color name="good_button_bg">#FFC3EFC0</color>
+    <color name="good_button_text">#FF002106</color>
+    <color name="easy_button_bg">#FFD1E4FF</color>
+    <color name="easy_button_text">#FF001D36</color>
+    <!-- "Show answer": the accent color (dynamic on Android 12+, see values-v31). -->
+    <color name="show_answer_button_bg">#FFD3E3FD</color>
+    <color name="show_answer_button_text">#FF041E49</color>
+    <color name="notification_divider">#1F000000</color>
 </resources>
