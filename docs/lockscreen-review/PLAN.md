@@ -59,7 +59,7 @@ Limits:
 - [x] 3.3 States: card / "Bravo" / not started are done; drawing the user's background on the home screen (Android 8–13) needs the settings below. (#8)
 - [x] 3.4 Redraw when the card changes and on `onSurfaceChanged`.
 - [x] 3.5 `onComputeColors()` so the system theme colors stay consistent. (#9)
-- [ ] Bug: two engine instances receive each screen event: previews no longer listen; to confirm on a device. (#10)
+- [x] Bug: two engine instances received each screen event. The screen events are now received once by the service, which drives `LockSession` once and lets the non-preview engines redraw. (#10)
 
 ## Phase 4: Settings and onboarding
 
@@ -93,3 +93,4 @@ Limits:
 - 2026-10-11: On a fresh install, no notification was shown because `POST_NOTIFICATIONS` was never requested (fixed in 2.4). A card stored by an older version (sound-only question) made the wallpaper blank: it now shows a hint to start reviewing.
 - 2026-10-11 (#21, `scripts/install.ps1 -Probe`, test device, 48 decks, 4 selected): a query when AnkiDroid was closed takes **330–390 ms** (AnkiDroid is started in the background); with AnkiDroid in memory, deck counts take **~10 ms**. Querying due cards costs about **25–45 ms for 1 card, 85 ms for 10, 150–200 ms for 40**: the cost grows with the number of cards scanned, so a full `queryNextCard` takes 200–400 ms. Querying a deck's due cards does **not** change the deck selected in AnkiDroid. Conclusion: scan progressively (1 card, then 10, then the rest) so the usual case stays around 30–50 ms; a check at lock is then cheap, except right after Android closed AnkiDroid (~0.4 s once).
 - 2026-10-11 (#21): with the progressive scan (1 card, then 10, then the rest), "next card" takes **45–78 ms** with AnkiDroid in memory, instead of 207–426 ms. The sync runs when the app opens (seen on the device: the missing notification was posted again), at lock (max every 10 minutes), after a reboot, when the deck order changes, and hourly (WorkManager job confirmed at ~59 min).
+- 2026-10-11 (#10): with the receiver in the service, each `SCREEN_OFF` / `SCREEN_ON` is logged once ("1 active engine(s)"). `dumpsys wallpaper` shows a single connection to `CardWallpaperService`. Right after an `adb install -r`, the first event can be missed while the system binds the wallpaper again.
