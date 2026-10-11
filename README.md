@@ -53,6 +53,8 @@ AnkiDroid Companion is an extension app for the AnkiDroid flashcard app. It lets
 
 - Build: `./gradlew assembleDebug` (JDK 17 or newer). Full check (lint and unit tests): `./gradlew build`.
 - On Windows, `scripts/install.ps1` builds, installs and starts the app on a connected device (also available as the default build task in VS Code).
+- Device tests: `scripts/device-tests.ps1` runs end-to-end scenarios with a fake AnkiDroid (`app/src/androidTest`), on an emulator by default (VS Code task "Android: run device tests"). They also run on an emulator for each pull request and before each release.
+- Release: `scripts/release.ps1` runs the build, unit tests and device tests, then starts the Release workflow.
 - See `CLAUDE.md` for the architecture.
 
 
