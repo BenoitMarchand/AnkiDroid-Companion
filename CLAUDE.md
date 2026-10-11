@@ -23,10 +23,14 @@ AnkiDroid Companion is a small Android app that lets the user review AnkiDroid f
 - `minSdk 26`, `targetSdk 34`, `compileSdk 34`. Anything newer than API 26 must be guarded with `Build.VERSION.SDK_INT` checks.
 - Manual testing needs a real device or emulator with AnkiDroid installed and at least one deck with due cards.
 
-## CI / release
+## Branches, versions and releases
 
-- `.github/workflows/develop.yml`: builds (lint + unit tests) and uploads a debug APK on pushes to `develop` and on pull requests to `main`.
-- `.github/workflows/release.yml`: on any pushed tag, creates a GitHub release (GitHub CLI) and attaches the **debug** APK.
+- `develop` is the integration branch: feature branches are merged into it through pull requests (open PRs against `develop`, not `main`). `main` only receives releases.
+- Version: `versionName` is `MAJOR.MINOR.PATCH` in `app/build.gradle.kts`, managed by `scripts/version.py` (`show`, `patch`, `minor`, `major`; each bump also increases `versionCode`). Don't edit the version by hand.
+- `.github/workflows/integration.yml`: each PR merged into `develop` increases the **patch** digit (bot commit on `develop`).
+- `.github/workflows/release.yml`: started **on request only** (`gh workflow run release.yml`, or Actions › Release): increases the **minor** digit, builds, merges `develop` into `main`, tags `vX.Y.0` and publishes the **debug** APK as a GitHub release. Issues closed by "Closes #N" in commits are only closed when they reach `main`, i.e. at release.
+- `.github/workflows/develop.yml`: builds (lint + unit tests) and uploads a debug APK on pushes to `develop` and on pull requests to `develop` or `main`.
+- After a merge or a release, pull `develop` before branching: the bot commits the version bump there.
 - The release keystore path is git-ignored; never commit keystores or signing credentials.
 
 ## Architecture
