@@ -52,8 +52,8 @@ Limits:
 - [x] 2.1 Notification fully visible on the lock screen (`VISIBILITY_PUBLIC`, dedicated channel). (#4)
 - [x] 2.2 / 2.3 Remove an unused notification on unlock, post it again at the next lock; receivers in the wallpaper engine, current behavior without the wallpaper. (#5)
 - [x] 2.4 Request `POST_NOTIFICATIONS` at runtime on API 33+.
+- [x] 2.5 The expanded notification shows the question and a **Show answer** button first; the answer and the buttons are revealed in place. Pill buttons in soft per-ease colors, Show answer in the dynamic accent color. (#23)
 - [x] 2.6 One review per lock session, notification only while locked, option to review several in a row. Screen turned on again before the keyguard locked counts as an unlock. (#24)
-- [x] 2.5 Review without expanding: tapping the notification opens a review screen over the lock screen (`ReviewActivity`, `setShowWhenLocked`). The expanded notification shows the question and a **Show answer** button first; the answer and the buttons are revealed in place. Pill buttons in soft per-ease colors, Show answer in the dynamic accent color. (#23)
 
 ## Phase 3: Live wallpaper
 
@@ -100,3 +100,4 @@ Limits:
 - 2026-10-11 (#10): with the receiver in the service, each `SCREEN_OFF` / `SCREEN_ON` is logged once ("1 active engine(s)"). `dumpsys wallpaper` shows a single connection to `CardWallpaperService`. Right after an `adb install -r`, the first event can be missed while the system binds the wallpaper again.
 - 2026-10-11 (#19): rendered on the test device at 540×1200: each filter takes 5–70 ms to compute (blur is the slowest), then is reused from the cache on each redraw.
 - 2026-10-11: running an instrumented test (`am instrument`) force-stops the app, and Android then **resets the live wallpaper** (the lock screen went back to the system image wallpaper). The card wallpaper has to be selected again after device tests (#18).
+- 2026-10-11 (#23): a review screen opened by tapping the notification (`setShowWhenLocked`) was tried and dropped: with a tap action, the lock screen asks to unlock before opening anything, while without one, tapping expands the notification in place. The notification stays the way to review from the lock screen.
