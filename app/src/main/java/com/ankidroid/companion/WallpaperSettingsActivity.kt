@@ -35,6 +35,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -43,11 +44,13 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -157,6 +160,10 @@ private fun WallpaperSettingsScreen(onBack: () -> Unit) {
                 }
             }
 
+            if (style.hasImage) {
+                PictureFilterSection(style, onPreview = { style = it }, onChange = ::update)
+            }
+
             Section(stringResource(R.string.wallpaper_text_color)) {
                 ColorChoices(TEXT_COLORS, selected = style.textColor) { update(style.copy(textColor = it)) }
             }
@@ -175,6 +182,58 @@ private fun WallpaperSettingsScreen(onBack: () -> Unit) {
                 }
             }
             Spacer(Modifier.height(16.dp))
+        }
+    }
+}
+
+private val FILTER_LABELS = mapOf(
+    PictureFilter.DARKEN to R.string.picture_filter_darken,
+    PictureFilter.BLUR to R.string.picture_filter_blur,
+    PictureFilter.GRADIENT to R.string.picture_filter_gradient,
+    PictureFilter.PANEL to R.string.picture_filter_panel,
+    PictureFilter.NONE to R.string.picture_filter_none,
+)
+
+/**
+ * Filter type and intensity for the background picture. The slider updates the preview while it moves
+ * ([onPreview]) and saves when released ([onChange]), so the wallpaper isn't redrawn on every step.
+ */
+@Composable
+private fun PictureFilterSection(style: WallpaperStyle, onPreview: (WallpaperStyle) -> Unit, onChange: (WallpaperStyle) -> Unit) {
+    Section(stringResource(R.string.picture_filter)) {
+        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            PictureFilter.entries.forEach { filter ->
+                FilterChip(
+                    selected = style.filter == filter,
+                    onClick = { onChange(style.copy(filter = filter)) },
+                    label = {
+                        // With dark text, the picture is lightened instead of darkened.
+                        val label = if (filter == PictureFilter.DARKEN && !CardRenderer.isLight(style.textColor)) {
+                            R.string.picture_filter_lighten
+                        } else {
+                            FILTER_LABELS.getValue(filter)
+                        }
+                        Text(stringResource(label))
+                    },
+                )
+            }
+        }
+        if (style.filter != PictureFilter.NONE) {
+            var intensity by remember(style.filter) { mutableIntStateOf(style.filterIntensity) }
+            Spacer(Modifier.height(8.dp))
+            Text(
+                stringResource(R.string.picture_filter_intensity, intensity),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Slider(
+                value = intensity.toFloat(),
+                onValueChange = {
+                    intensity = it.toInt()
+                    onPreview(style.copy(filterIntensity = intensity))
+                },
+                onValueChangeFinished = { onChange(style.copy(filterIntensity = intensity)) },
+                valueRange = 0f..PictureFilter.MAX_INTENSITY.toFloat(),
+            )
         }
     }
 }

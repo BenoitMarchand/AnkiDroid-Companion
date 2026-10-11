@@ -15,7 +15,7 @@ AnkiDroid Companion is an extension app for the AnkiDroid flashcard app. It lets
 
 - **Cards with sound are skipped**: cards whose question plays a sound can't be reviewed from a notification, so they are skipped. They stay due in AnkiDroid: nothing is recorded until you answer a card.
 
-- **Lock screen style**: choose a background color or image, the text color and the text size, with a live preview.
+- **Lock screen style**: choose a background color or image, the text color and the text size, with a live preview. On a picture, choose how it is filtered so the text stays readable (darken, blur, gradient behind the text, text panel or none) and how strongly.
 
 - **Tidy notifications**: if you unlock the phone without answering, the notification is removed, and comes back the next time you lock the phone.
 

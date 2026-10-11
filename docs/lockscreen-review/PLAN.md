@@ -64,6 +64,7 @@ Limits:
 ## Phase 4: Settings and onboarding
 
 - [x] 4.1 Wallpaper settings: background image or color, text style, preview. (#8)
+- [x] 4.5 Picture filter: darken, blur, gradient, text panel or none, with an intensity (0–80%, default darken 35%). Applied once and cached; wallpaper colors computed from the filtered picture. (#19)
 - [x] 4.2 "Set lock screen wallpaper" shows instructions and opens the system wallpaper settings (`ACTION_CHANGE_LIVE_WALLPAPER` applied the wallpaper to both screens).
 - [x] 4.3 Onboarding hints: notifications, sensitive content on the lock screen, battery optimization, wallpaper set. (#11)
 - [x] 4.4 User-facing strings in `strings.xml`.
@@ -94,3 +95,4 @@ Limits:
 - 2026-10-11 (#21, `scripts/install.ps1 -Probe`, test device, 48 decks, 4 selected): a query when AnkiDroid was closed takes **330–390 ms** (AnkiDroid is started in the background); with AnkiDroid in memory, deck counts take **~10 ms**. Querying due cards costs about **25–45 ms for 1 card, 85 ms for 10, 150–200 ms for 40**: the cost grows with the number of cards scanned, so a full `queryNextCard` takes 200–400 ms. Querying a deck's due cards does **not** change the deck selected in AnkiDroid. Conclusion: scan progressively (1 card, then 10, then the rest) so the usual case stays around 30–50 ms; a check at lock is then cheap, except right after Android closed AnkiDroid (~0.4 s once).
 - 2026-10-11 (#21): with the progressive scan (1 card, then 10, then the rest), "next card" takes **45–78 ms** with AnkiDroid in memory, instead of 207–426 ms. The sync runs when the app opens (seen on the device: the missing notification was posted again), at lock (max every 10 minutes), after a reboot, when the deck order changes, and hourly (WorkManager job confirmed at ~59 min).
 - 2026-10-11 (#10): with the receiver in the service, each `SCREEN_OFF` / `SCREEN_ON` is logged once ("1 active engine(s)"). `dumpsys wallpaper` shows a single connection to `CardWallpaperService`. Right after an `adb install -r`, the first event can be missed while the system binds the wallpaper again.
+- 2026-10-11 (#19): rendered on the test device at 540×1200: each filter takes 5–70 ms to compute (blur is the slowest), then is reused from the cache on each redraw.

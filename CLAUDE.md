@@ -55,7 +55,8 @@ Single module `:app`, package `com.ankidroid.companion`, mixed Java + Kotlin. Th
 | `PeriodicWorker.kt` | WorkManager job (`"WORKER_ANKI"`, hourly, `PeriodicWorker.schedule()`): runs the sync, which also finds new cards after "Bravo". |
 | `CardWallpaperService.kt` | Live wallpaper for the lock screen: draws the current card with `CardRenderer`, redraws when `CURRENT_STATE` or the style changes, and drives `LockSession` from screen events (the only component that receives them). |
 | `CardRenderer.kt` / `CardLayout.kt` | Draws the card (background color or image, question, deck name). `CardLayout` is the pure geometry: text area, text size fitting. |
-| `WallpaperStyle.kt` / `WallpaperSettingsActivity.kt` | The lock screen style (background color or image in app storage, text color and size) and its settings screen with a live preview. Also opened from the system wallpaper picker. |
+| `WallpaperStyle.kt` / `WallpaperSettingsActivity.kt` | The lock screen style (background color or image in app storage, picture filter and intensity, text color and size) and its settings screen with a live preview. Also opened from the system wallpaper picker. |
+| `PictureFilter.kt` | Pure logic of the background picture filters (darken, blur, gradient, text panel, none): opacity and blur radius from the intensity, box blur, gradient band. `CardRenderer` applies them and caches the filtered picture. |
 | `LockSession.kt` | Removes the notification on unlock when the card wasn't answered while locked, and posts it again at the next lock. |
 | `CardInfo.java` / `StoredState.java` | Plain data holders. An "empty" state is represented by `noteID == -1 && cardOrd == -1`. |
 

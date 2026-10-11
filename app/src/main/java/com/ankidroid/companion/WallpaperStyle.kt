@@ -18,6 +18,10 @@ data class WallpaperStyle(
     val hasImage: Boolean = false,
     /** Changes when a new image is picked, so the wallpaper reloads it even if [hasImage] was already true. */
     val imageVersion: Long = 0,
+    /** How the background image is filtered so the text stays readable. */
+    val filter: PictureFilter = PictureFilter.DEFAULT,
+    /** Strength of [filter], in percent (0 to [PictureFilter.MAX_INTENSITY]). */
+    val filterIntensity: Int = PictureFilter.DEFAULT_INTENSITY,
 ) {
     enum class TextSize(val scale: Float) { SMALL(0.8f), MEDIUM(1f), LARGE(1.25f) }
 
@@ -30,6 +34,8 @@ data class WallpaperStyle(
         private const val KEY_TEXT_SIZE = "text_size"
         private const val KEY_HAS_IMAGE = "has_image"
         private const val KEY_IMAGE_VERSION = "image_version"
+        private const val KEY_FILTER = "picture_filter"
+        private const val KEY_FILTER_INTENSITY = "picture_filter_intensity"
         private const val IMAGE_FILE = "wallpaper_background.jpg"
 
         /** Images are scaled down to this size: enough for a phone screen, small enough to keep in memory. */
@@ -45,6 +51,9 @@ data class WallpaperStyle(
                 textSize = TextSize.entries.firstOrNull { it.name == prefs.getString(KEY_TEXT_SIZE, null) } ?: TextSize.MEDIUM,
                 hasImage = prefs.getBoolean(KEY_HAS_IMAGE, false) && backgroundFile(context).exists(),
                 imageVersion = prefs.getLong(KEY_IMAGE_VERSION, 0),
+                filter = PictureFilter.entries.firstOrNull { it.name == prefs.getString(KEY_FILTER, null) } ?: PictureFilter.DEFAULT,
+                filterIntensity = prefs.getInt(KEY_FILTER_INTENSITY, PictureFilter.DEFAULT_INTENSITY)
+                    .coerceIn(0, PictureFilter.MAX_INTENSITY),
             )
         }
 
@@ -55,6 +64,8 @@ data class WallpaperStyle(
                 .putString(KEY_TEXT_SIZE, style.textSize.name)
                 .putBoolean(KEY_HAS_IMAGE, style.hasImage)
                 .putLong(KEY_IMAGE_VERSION, style.imageVersion)
+                .putString(KEY_FILTER, style.filter.name)
+                .putInt(KEY_FILTER_INTENSITY, style.filterIntensity)
                 .apply()
         }
 

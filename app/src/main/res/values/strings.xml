@@ -49,6 +49,14 @@
     <string name="wallpaper_choose_image">Choose an image</string>
     <string name="wallpaper_remove_image">Remove image</string>
     <string name="wallpaper_image_error">This image can\'t be used.</string>
+    <string name="picture_filter">Picture filter</string>
+    <string name="picture_filter_darken">Darken</string>
+    <string name="picture_filter_lighten">Lighten</string>
+    <string name="picture_filter_blur">Blur</string>
+    <string name="picture_filter_gradient">Gradient</string>
+    <string name="picture_filter_panel">Text panel</string>
+    <string name="picture_filter_none">None</string>
+    <string name="picture_filter_intensity">Intensity: %1$d%%</string>
     <string name="wallpaper_text_color">Text color</string>
     <string name="wallpaper_text_size">Text size</string>
     <string name="text_size_small">Small</string>

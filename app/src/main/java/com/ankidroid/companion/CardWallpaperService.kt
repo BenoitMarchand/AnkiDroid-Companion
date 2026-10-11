@@ -144,9 +144,17 @@ class CardWallpaperService : WallpaperService() {
 
         /** Lets the system pick readable colors (e.g. for the clock) on top of our background. */
         @RequiresApi(Build.VERSION_CODES.O_MR1)
-        override fun onComputeColors(): WallpaperColors =
-            background?.let { WallpaperColors.fromBitmap(it) }
-                ?: WallpaperColors(Color.valueOf(style.backgroundColor), null, null)
+        override fun onComputeColors(): WallpaperColors {
+            val image = background ?: return WallpaperColors(Color.valueOf(style.backgroundColor), null, null)
+            // Computed from the filtered picture, so the clock color matches what is displayed.
+            val frame = surfaceHolder.surfaceFrame
+            val shown = if (frame.width() > 0 && frame.height() > 0) {
+                renderer.filteredBackground(frame.width(), frame.height(), style, image)
+            } else {
+                image
+            }
+            return WallpaperColors.fromBitmap(shown)
+        }
 
         override fun onSurfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
             super.onSurfaceChanged(holder, format, width, height)
