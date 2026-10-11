@@ -13,7 +13,7 @@ AnkiDroid Companion is a small Android app that lets the user review AnkiDroid f
 
 ## Build & run
 
-- JDK 17 is required (same as CI). AGP 8.2.2, Kotlin 1.9.0, Gradle 8.2.
+- Toolchain: Gradle 9.3, AGP 9.0.1 (built-in Kotlin, so no `kotlin-android` plugin in `app`), Kotlin 2.3.20 with the Compose compiler Gradle plugin, Java/Kotlin bytecode target 17. Runs on JDK 17+ (CI uses 17; JDK 25 bundled with recent Android Studio works). Upgrade versions as a matched set.
 - Windows: `.\gradlew.bat assembleDebug` · Unix: `./gradlew assembleDebug`
 - Full build + lint + unit tests: `./gradlew build`
 - Unit tests: `./gradlew test` · Instrumented tests (device needed): `./gradlew connectedAndroidTest`
