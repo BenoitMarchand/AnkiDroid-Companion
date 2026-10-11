@@ -2,7 +2,7 @@ name: Release
 
 # Started on request (Actions tab > Release > Run workflow, or `gh workflow run release.yml`):
 # increases the 2nd digit of the version on develop, merges develop into main, tags vX.Y.0 and publishes
-# the APK as a GitHub release.
+# the APK as a GitHub release. Nothing is tagged unless the device tests pass on an emulator.
 on:
   workflow_dispatch:
 
@@ -18,7 +18,42 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # A release is only tagged when the device tests (fake AnkiDroid, app/src/androidTest) pass on an emulator.
+  device-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: develop
+
+    - name: Set Up JDK
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'zulu'
+        java-version: '17'
+        cache: 'gradle'
+
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+
+    - name: Enable KVM
+      run: |
+        echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+        sudo udevadm control --reload-rules
+        sudo udevadm trigger --name-match=kvm
+
+    - name: Run the device tests on an emulator
+      uses: reactivecircus/android-emulator-runner@v2
+      with:
+        api-level: 34
+        arch: x86_64
+        target: google_apis
+        disable-animations: true
+        script: ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.notClass=com.ankidroid.companion.AnkiDroidProbeTest
+
   release:
+    needs: device-tests
     runs-on: ubuntu-latest
 
     steps:

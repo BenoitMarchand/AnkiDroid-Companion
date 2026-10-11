@@ -105,7 +105,7 @@ class MainActivity : ComponentActivity() {
 
     private fun requestMissingPermissions() {
         val missing = buildList {
-            if (AnkiDroidHelper.isApiAvailable(this@MainActivity) && !isGranted(AddContentApi.READ_WRITE_PERMISSION)) {
+            if (AnkiDroidHelper.isApiAvailable(this@MainActivity) && !AnkiDroidHelper(this@MainActivity).isPermissionGranted) {
                 add(AddContentApi.READ_WRITE_PERMISSION)
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !isGranted(Manifest.permission.POST_NOTIFICATIONS)) {
@@ -127,7 +127,7 @@ class MainActivity : ComponentActivity() {
             screenState = ScreenState.ApiUnavailable
             return
         }
-        if (!isGranted(AddContentApi.READ_WRITE_PERMISSION)) {
+        if (!AnkiDroidHelper(this).isPermissionGranted) {
             screenState = ScreenState.PermissionMissing
             return
         }
@@ -150,7 +150,7 @@ class MainActivity : ComponentActivity() {
 
     private fun loadDecks(): LoadedData {
         val anki = AnkiDroidHelper(this)
-        val names = anki.api.deckList ?: emptyMap()
+        val names = anki.deckNames ?: emptyMap()
         val counts = anki.getDeckCounts()
         val decks = names.map { (id, name) ->
             val count = counts[id]
@@ -170,7 +170,7 @@ class MainActivity : ComponentActivity() {
         if (question.isEmpty() || CardText.hasSound(state.question)) {
             return CurrentCard.NotStarted
         }
-        return CurrentCard.Showing(question, anki.api.getDeckName(state.deckId) ?: "")
+        return CurrentCard.Showing(question, anki.getDeckName(state.deckId) ?: "")
     }
 
     private fun toggleDeck(deckId: Long) {

@@ -75,6 +75,7 @@ Limits:
 ## Phase 5: Testing and release
 
 - [x] 5.1 Unit tests: card text cleaning, deck order logic, deck tree, renderer. (#12)
+- [x] 5.4 Device tests with a fake AnkiDroid (`AnkiDataSource` seam): `scripts/device-tests.ps1` on an emulator, CI on each PR and before each release, `scripts/release.ps1`. (#18)
 - [ ] 5.2 Manual test matrix: API 26 / 29 / 33 / 34+, Pixel / Samsung / Xiaomi, reboot, Doze, decks finished, AnkiDroid missing, wallpaper deselected. (#13)
 - [ ] 5.3 README and version 0.1 done; tag a release on the fork, optional PR to upstream. (#14)
 - [x] CI workflows: `actions/upload-artifact@v3` is retired. (#15)

@@ -1,64 +1,38 @@
 package com.ankidroid.companion;
 
 import android.annotation.SuppressLint;
-import android.app.Activity;
-import android.content.ContentResolver;
-import android.content.ContentValues;
 import android.content.Context;
 import android.content.SharedPreferences;
-import android.content.pm.PackageManager;
-import android.database.Cursor;
-import android.net.Uri;
-import android.os.Build;
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 import android.widget.Toast;
 
-import com.ichi2.anki.FlashCardsContract;
 import com.ichi2.anki.api.AddContentApi;
-import static com.ichi2.anki.api.AddContentApi.READ_WRITE_PERMISSION;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+/**
+ * Card selection on top of AnkiDroid's data ({@link AnkiDataSource}: the ContentProvider, or a fake in device
+ * tests), and the stored state of the displayed card.
+ */
 public class AnkiDroidHelper {
-    public static final int EASE_1 = 1;
-    public static final int EASE_2 = 2;
-    public static final int EASE_3 = 3;
-    public static final int EASE_4 = 4;
-
-    public static final String[] SIMPLE_CARD_PROJECTION = {
-            FlashCardsContract.Card.ANSWER_PURE,
-            FlashCardsContract.Card.QUESTION_SIMPLE};
-    private static final String DECK_REF_DB = "com.ichi2.anki.api.decks";
     public static final String STATE_DB = "com.ichi2.anki.api.state";
 
     public static final String KEY_CURRENT_STATE = "CURRENT_STATE";
 
-
-    private AddContentApi mApi;
-    private Context mContext;
+    private final Context mContext;
+    private final AnkiDataSource mSource;
     private final Handler uiHandler = new Handler(Looper.getMainLooper());
 
     public AnkiDroidHelper(Context context) {
-        Log.i("BackgroundService", "AnkiDroidHelper constructor - 1");
         mContext = context.getApplicationContext();
-        Log.i("BackgroundService", "AnkiDroidHelper constructor - 2");
-        mApi = new AddContentApi(mContext);
-        Log.i("BackgroundService", "AnkiDroidHelper constructor - 3");
-    }
-
-    public AddContentApi getApi() {
-        return mApi;
+        mSource = AnkiData.source(mContext);
     }
 
     /**
@@ -67,88 +41,20 @@ public class AnkiDroidHelper {
      * @return true if the API is available to use
      */
     public static boolean isApiAvailable(Context context) {
-        return AddContentApi.getAnkiDroidPackageName(context) != null;
-    }
-
-    /**
-     * Whether or not we should request full access to the AnkiDroid API
-     */
-    public boolean shouldRequestPermission() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
-            return false;
-        }
-        return ContextCompat.checkSelfPermission(mContext, READ_WRITE_PERMISSION) != PackageManager.PERMISSION_GRANTED;
-    }
-
-    /**
-     * Request permission from the user to access the AnkiDroid API (for SDK 23+)
-     * @param callbackActivity An Activity which implements onRequestPermissionsResult()
-     * @param callbackCode The callback code to be used in onRequestPermissionsResult()
-     */
-    public void requestPermission(Activity callbackActivity, int callbackCode) {
-        ActivityCompat.requestPermissions(callbackActivity, new String[]{READ_WRITE_PERMISSION}, callbackCode);
+        return AnkiData.getOverride() != null || AddContentApi.getAnkiDroidPackageName(context) != null;
     }
 
     public boolean isPermissionGranted() {
-        return ContextCompat.checkSelfPermission(mContext, READ_WRITE_PERMISSION) == PackageManager.PERMISSION_GRANTED;
+        return mSource.isPermissionGranted();
     }
 
-    /**
-     * Save a mapping from deckName to getDeckId in the SharedPreferences
-     */
-    public void storeDeckReference(String deckName, long deckId) {
-        final SharedPreferences decksDb = mContext.getSharedPreferences(DECK_REF_DB, Context.MODE_PRIVATE);
-        decksDb.edit().putLong(deckName, deckId).apply();
+    /** All decks by ID, or null if they can't be read. */
+    public Map<Long, String> getDeckNames() {
+        return mSource.deckNames();
     }
 
-    /**
-     * Try to find the given deck by name, accounting for potential renaming of the deck by the user as follows:
-     * If there's a deck with deckName then return it's ID
-     * If there's no deck with deckName, but a ref to deckName is stored in SharedPreferences, and that deck exist in
-     * AnkiDroid (i.e. it was renamed), then use that deck.Note: this deck will not be found if your app is re-installed
-     * If there's no reference to deckName anywhere then return null
-     * @param deckName the name of the deck to find
-     * @return the did of the deck in Anki
-     */
-    public Long findDeckIdByName(String deckName) {
-        SharedPreferences decksDb = mContext.getSharedPreferences(DECK_REF_DB, Context.MODE_PRIVATE);
-        // Look for deckName in the deck list
-        Long did = getDeckId(deckName);
-        if (did != null) {
-            // If the deck was found then return it's id
-            return did;
-        } else {
-            // Otherwise try to check if we have a reference to a deck that was renamed and return that
-            did = decksDb.getLong(deckName, -1);
-            if (did != -1 && mApi.getDeckName(did) != null) {
-                return did;
-            } else {
-                // If the deck really doesn't exist then return null
-                return null;
-            }
-        }
-    }
-
-    public String getCurrentDeckName() {
-        StoredState state = getStoredState();
-        return mApi.getDeckName(state.deckId);
-    }
-
-    /**
-     * Get the ID of the deck which matches the name
-     * @param deckName Exact name of deck (note: deck names are unique in Anki)
-     * @return the ID of the deck that has given name, or null if no deck was found or API error
-     */
-    private Long getDeckId(String deckName) {
-        Map<Long, String> deckList = mApi.getDeckList();
-        if (deckList != null) {
-            for (Map.Entry<Long, String> entry : deckList.entrySet()) {
-                if (entry.getValue().equalsIgnoreCase(deckName)) {
-                    return entry.getKey();
-                }
-            }
-        }
-        return null;
+    public String getDeckName(long deckId) {
+        return mSource.deckName(deckId);
     }
 
     public void storeState(long deckId, CardInfo card) {
@@ -173,13 +79,12 @@ public class AnkiDroidHelper {
         String message = cardsDb.getString(KEY_CURRENT_STATE, "");
 
         // No state found in local
-        if (message == "") {
+        if (message.isEmpty()) {
             return null;
         }
 
-        JSONObject json;
         try {
-            json = new JSONObject(message);
+            JSONObject json = new JSONObject(message);
             StoredState state = new StoredState();
             state.deckId = json.getLong("deck_id");
             state.noteID = json.getLong("note_id");
@@ -191,13 +96,11 @@ public class AnkiDroidHelper {
             state.deckName = json.optString("deck_name", "");
             return state;
         } catch (JSONException e) {
-            // Log.e(TAG, "JSONException " + e);
-            e.printStackTrace();
+            Log.e("AnkiDroidHelper", "Could not read the stored state", e);
         }
         return null;
     }
 
-    @SuppressLint("Range,DirectSystemCurrentTimeMillisUsage")
     public CardInfo queryCurrentScheduledCard(long deckID) {
         return queryCurrentScheduledCard(deckID, DeckScanner.DEFAULT_SCAN_LIMIT);
     }
@@ -206,91 +109,27 @@ public class AnkiDroidHelper {
      * The first displayable card among the next {@code scanLimit} due cards of the deck, or null if they all
      * have to be skipped.
      */
-    @SuppressLint("Range,DirectSystemCurrentTimeMillisUsage")
+    @SuppressLint("DirectSystemCurrentTimeMillisUsage")
     public CardInfo queryCurrentScheduledCard(long deckID, int scanLimit) {
-        // Log.d(TAG, "QueryForCurrentCard");
-        String[] deckArguments = new String[deckID == -1 ? 1 : 2];
-        String deckSelector = "limit=?";
-        // Fetch several due cards so the ones we can't display (sound in the question) can be skipped.
-        deckArguments[0] = "" + scanLimit;
-        if (deckID != -1) {
-            deckSelector += ",deckID=?";
-            deckArguments[1] = "" + deckID;
-        }
-
         // This call requires com.ichi2.anki.permission.READ_WRITE_DATABASE to be granted by user as it is
-        // marked as "dangerous" by ankidroid app. This permission has been asked before. Would crash if
-        // not granted, so checking
-        if (!isPermissionGranted()) {
+        // marked as "dangerous" by ankidroid app. This permission has been asked before.
+        if (!mSource.isPermissionGranted()) {
             uiHandler.post(() -> Toast.makeText(mContext,
                     R.string.permission_not_granted,
                     Toast.LENGTH_SHORT).show());
-        } else {
-            // permission has been granted, normal case
-
-            Cursor reviewInfoCursor =
-                    mContext.getContentResolver().query(FlashCardsContract.ReviewInfo.CONTENT_URI, null, deckSelector, deckArguments, null);
-
-            if (reviewInfoCursor == null || !reviewInfoCursor.moveToFirst()) {
-                // Log.d(TAG, "query for due card info returned no result");
-                if (reviewInfoCursor != null) {
-                    reviewInfoCursor.close();
-                }
-            } else {
-                ArrayList<CardInfo> cards = new ArrayList<>();
-
-                // Walk through the cursor to get the responses.
-                do {
-                    CardInfo card = new CardInfo();
-
-                    card.cardOrd = reviewInfoCursor.getInt(reviewInfoCursor.getColumnIndex(FlashCardsContract.ReviewInfo.CARD_ORD));
-                    card.noteID = reviewInfoCursor.getLong(reviewInfoCursor.getColumnIndex(FlashCardsContract.ReviewInfo.NOTE_ID));
-                    card.buttonCount = reviewInfoCursor.getInt(reviewInfoCursor.getColumnIndex(FlashCardsContract.ReviewInfo.BUTTON_COUNT));
-
-                    try {
-                        card.fileNames = new JSONArray(reviewInfoCursor.getString(reviewInfoCursor.getColumnIndex(FlashCardsContract.ReviewInfo.MEDIA_FILES)));
-                        card.nextReviewTexts = new JSONArray(reviewInfoCursor.getString(reviewInfoCursor.getColumnIndex(FlashCardsContract.ReviewInfo.NEXT_REVIEW_TIMES)));
-                    } catch (JSONException e) {
-                        e.printStackTrace();
-                    }
-                    card.cardStartTime = System.currentTimeMillis();
-                    // Log.v(TAG, "card added to queue: " + card.fileNames);
-                    cards.add(card);
-                } while (reviewInfoCursor.moveToNext());
-
-                reviewInfoCursor.close();
-
-                if (cards.size() >= 1) {
-                    for (CardInfo card : cards) {
-                        Uri noteUri = Uri.withAppendedPath(FlashCardsContract.Note.CONTENT_URI, Long.toString(card.noteID));
-                        Uri cardsUri = Uri.withAppendedPath(noteUri, "cards");
-                        Uri specificCardUri = Uri.withAppendedPath(cardsUri, Integer.toString(card.cardOrd));
-                        final Cursor specificCardCursor = mContext.getContentResolver().query(specificCardUri,
-                                SIMPLE_CARD_PROJECTION,  // projection
-                                null,  // selection is ignored for this URI
-                                null,  // selectionArgs is ignored for this URI
-                                null   // sortOrder is ignored for this URI
-                        );
-
-                        if (specificCardCursor == null || !specificCardCursor.moveToFirst()) {
-                            // Log.d(TAG, "query for due card info returned no result");
-                            if (specificCardCursor != null) {
-                                specificCardCursor.close();
-                            }
-                            continue;
-                        }
-                        card.a = specificCardCursor.getString(specificCardCursor.getColumnIndex(FlashCardsContract.Card.ANSWER_PURE));
-                        card.q = specificCardCursor.getString(specificCardCursor.getColumnIndex(FlashCardsContract.Card.QUESTION_SIMPLE));
-                        specificCardCursor.close();
-
-                        if (isDisplayable(card)) {
-                            return card;
-                        }
-                        Log.i("Notifications", "skipping card that can't be displayed, noteID: " + card.noteID + ", ord: " + card.cardOrd);
-                    }
-                    Log.i("Notifications", "no displayable card among the next " + cards.size() + " due cards");
-                }
+            return null;
+        }
+        // Fetch several due cards so the ones we can't display (sound in the question) can be skipped.
+        List<CardInfo> cards = mSource.dueCards(deckID, scanLimit);
+        for (CardInfo card : cards) {
+            if (isDisplayable(card)) {
+                card.cardStartTime = System.currentTimeMillis();
+                return card;
             }
+            Log.i("Notifications", "skipping card that can't be displayed, noteID: " + card.noteID + ", ord: " + card.cardOrd);
+        }
+        if (!cards.isEmpty()) {
+            Log.i("Notifications", "no displayable card among the next " + cards.size() + " due cards");
         }
         return null;
     }
@@ -321,7 +160,7 @@ public class AnkiDroidHelper {
                     CardInfo card = queryCurrentScheduledCard(deckId, scanLimit);
                     if (card != null) {
                         card.deckId = deckId;
-                        String deckName = mApi.getDeckName(deckId);
+                        String deckName = mSource.deckName(deckId);
                         card.deckName = deckName == null ? "" : deckName;
                     } else {
                         Log.i("Notifications", "deck " + deckId + ": no displayable card among " + scanLimit + " due cards");
@@ -334,52 +173,7 @@ public class AnkiDroidHelper {
      * Due counts of every deck, as {learn, review, new}, by deck ID. Empty if they can't be read.
      */
     public Map<Long, int[]> getDeckCounts() {
-        Map<Long, int[]> counts = new HashMap<>();
-        if (!isPermissionGranted()) {
-            return counts;
-        }
-        String[] projection = {FlashCardsContract.Deck.DECK_ID, FlashCardsContract.Deck.DECK_COUNTS};
-        try (Cursor cursor = mContext.getContentResolver().query(FlashCardsContract.Deck.CONTENT_ALL_URI, projection, null, null, null)) {
-            if (cursor == null) {
-                return counts;
-            }
-            int idColumn = cursor.getColumnIndexOrThrow(FlashCardsContract.Deck.DECK_ID);
-            int countsColumn = cursor.getColumnIndexOrThrow(FlashCardsContract.Deck.DECK_COUNTS);
-            while (cursor.moveToNext()) {
-                JSONArray json = new JSONArray(cursor.getString(countsColumn));
-                counts.put(cursor.getLong(idColumn), new int[]{json.getInt(0), json.getInt(1), json.getInt(2)});
-            }
-        } catch (JSONException | RuntimeException e) {
-            Log.e("AnkiDroidHelper", "Could not read deck counts", e);
-        }
-        return counts;
-    }
-
-    /**
-     * The identifiers of the next {@code limit} due cards of the deck (subdecks included), without their content.
-     * Empty if they can't be read.
-     */
-    public List<CardSync.CardKey> queryDueCardKeys(long deckId, int limit) {
-        List<CardSync.CardKey> keys = new ArrayList<>();
-        if (!isPermissionGranted()) {
-            return keys;
-        }
-        String[] projection = {FlashCardsContract.ReviewInfo.NOTE_ID, FlashCardsContract.ReviewInfo.CARD_ORD};
-        String[] arguments = {"" + limit, "" + deckId};
-        try (Cursor cursor = mContext.getContentResolver().query(
-                FlashCardsContract.ReviewInfo.CONTENT_URI, projection, "limit=?,deckID=?", arguments, null)) {
-            if (cursor == null) {
-                return keys;
-            }
-            int noteColumn = cursor.getColumnIndexOrThrow(FlashCardsContract.ReviewInfo.NOTE_ID);
-            int ordColumn = cursor.getColumnIndexOrThrow(FlashCardsContract.ReviewInfo.CARD_ORD);
-            while (cursor.moveToNext()) {
-                keys.add(new CardSync.CardKey(cursor.getLong(noteColumn), cursor.getInt(ordColumn)));
-            }
-        } catch (RuntimeException e) {
-            Log.e("AnkiDroidHelper", "Could not read due cards", e);
-        }
-        return keys;
+        return mSource.deckCounts();
     }
 
     /**
@@ -387,25 +181,16 @@ public class AnkiDroidHelper {
      * AnkiDroid since it was shown. Null if it can't be checked.
      */
     public Boolean isCardDue(long deckId, long noteId, int cardOrd) {
-        if (deckId == -1 || !isPermissionGranted()) {
+        if (deckId == -1 || !mSource.isPermissionGranted()) {
             return null;
         }
         int[] deckCounts = getDeckCounts().get(deckId);
         Integer due = deckCounts == null ? null : deckCounts[0] + deckCounts[1] + deckCounts[2];
-        return DeckScanner.isDue(new CardSync.CardKey(noteId, cardOrd), due, limit -> queryDueCardKeys(deckId, limit));
+        return DeckScanner.isDue(new CardSync.CardKey(noteId, cardOrd), due, limit -> mSource.dueCardKeys(deckId, limit));
     }
 
+    @SuppressLint("DirectSystemCurrentTimeMillisUsage")
     public void reviewCard(long noteID, int cardOrd, long cardStartTime, int ease) {
-        long timeTaken = System.currentTimeMillis() - cardStartTime;
-        ContentResolver cr = mContext.getContentResolver();
-        Uri reviewInfoUri = FlashCardsContract.ReviewInfo.CONTENT_URI;
-        ContentValues values = new ContentValues();
-        values.put(FlashCardsContract.ReviewInfo.NOTE_ID, noteID);
-        values.put(FlashCardsContract.ReviewInfo.CARD_ORD, cardOrd);
-        values.put(FlashCardsContract.ReviewInfo.EASE, ease);
-        values.put(FlashCardsContract.ReviewInfo.TIME_TAKEN, timeTaken);
-        // Log.d(TAG, timeTaken + " time taken " + values.getAsLong(FlashCardsContract.ReviewInfo.TIME_TAKEN));
-        cr.update(reviewInfoUri, values, null, null);
+        mSource.reviewCard(noteID, cardOrd, ease, System.currentTimeMillis() - cardStartTime);
     }
 }
-
