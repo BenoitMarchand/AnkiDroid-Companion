@@ -9,14 +9,6 @@
     <color name="white">#FFFFFFFF</color>
     <color name="primaryText">#FFFFFFFF</color>
 
-    <color name="again_button_bg">#FF93000A</color>
-    <color name="again_button_text">#FFFFDAD6</color>
-    <color name="hard_button_bg">#FF41484D</color>
-    <color name="hard_button_text">#FFDDE3EA</color>
-    <color name="good_button_bg">#FF1E5223</color>
-    <color name="good_button_text">#FFC3EFC0</color>
-    <color name="easy_button_bg">#FF00497D</color>
-    <color name="easy_button_text">#FFD1E4FF</color>
     <color name="show_answer_button_bg">#FF0842A0</color>
     <color name="show_answer_button_text">#FFD3E3FD</color>
     <color name="notification_divider">#33FFFFFF</color>

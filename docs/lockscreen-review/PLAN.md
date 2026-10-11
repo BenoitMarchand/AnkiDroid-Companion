@@ -51,7 +51,7 @@ Limits:
 - [x] 2.1 Notification fully visible on the lock screen (`VISIBILITY_PUBLIC`, dedicated channel). (#4)
 - [x] 2.2 / 2.3 Remove an unused notification on unlock, post it again at the next lock; receivers in the wallpaper engine, current behavior without the wallpaper. (#5)
 - [x] 2.4 Request `POST_NOTIFICATIONS` at runtime on API 33+.
-- [x] 2.5 The expanded notification shows the question and a **Show answer** button first; the answer and the buttons are revealed in place. Pill buttons in soft per-ease colors, Show answer in the dynamic accent color. (#23)
+- [x] 2.5 The expanded notification shows the question and a **Show answer** button first; the answer and the buttons are revealed in place. Pill buttons on a color scale (Again red, Hard orange, Good light green, Easy green), Show answer in the dynamic accent color. (#23)
 
 ## Phase 3: Live wallpaper
 
