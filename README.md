@@ -43,7 +43,7 @@ AnkiDroid Companion is an extension app for the AnkiDroid flashcard app. It lets
 
 - **Simple cards only**: cards are shown as plain text. Images aren't shown, and cards with sound in the question are skipped.
 
-- **New study interval**: when all cards are done, the app checks for new cards every 8 hours.
+- **Changes made in AnkiDroid**: AnkiDroid doesn't notify other apps. The companion checks the displayed card when you open it, when you lock the phone (at most every 10 minutes), after a restart and every hour, and never answers a card that is no longer due.
 
 - **Lock screen wallpaper**: a lock-screen-only live wallpaper needs Android 14 or newer, and some manufacturers' lock screens don't show third-party live wallpapers.
 

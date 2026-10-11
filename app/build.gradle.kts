@@ -60,6 +60,6 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
     implementation("com.github.ankidroid:Anki-Android:v2.17alpha8")
-    implementation("androidx.work:work-runtime:2.7.0")
+    implementation("androidx.work:work-runtime:2.9.0")
 
 }

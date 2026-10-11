@@ -10,7 +10,6 @@ import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
-import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -23,9 +22,6 @@ import androidx.compose.runtime.setValue
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
-import androidx.work.ExistingPeriodicWorkPolicy
-import androidx.work.PeriodicWorkRequest
-import androidx.work.WorkManager
 import com.ankidroid.companion.ui.CurrentCard
 import com.ankidroid.companion.ui.DeckItem
 import com.ankidroid.companion.ui.MainScreen
@@ -35,11 +31,13 @@ import com.ankidroid.companion.ui.SetupStatus
 import com.ankidroid.companion.ui.theme.AnkiNotificationsTheme
 import com.ichi2.anki.api.AddContentApi
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.util.concurrent.TimeUnit
 
 private const val ACTION_WALLPAPER_SETTINGS = "android.settings.WALLPAPER_SETTINGS"
+private const val DECK_CHANGE_DEBOUNCE_MS = 800L
 
 class MainActivity : ComponentActivity() {
     private var screenState by mutableStateOf<ScreenState>(ScreenState.Loading)
@@ -61,6 +59,10 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         Notifications.createChannel(this)
+        if (AnkiDroidHelper(this).storedState != null) {
+            // Reviewing was started before: make sure the periodic check uses the current interval.
+            PeriodicWorker.schedule(applicationContext)
+        }
         requestMissingPermissions()
 
         val actions = MainScreenActions(
@@ -124,7 +126,11 @@ class MainActivity : ComponentActivity() {
             return
         }
         lifecycleScope.launch {
-            val loaded = withContext(Dispatchers.IO) { loadDecks() }
+            val loaded = withContext(Dispatchers.IO) {
+                // The card may have been reviewed or changed in AnkiDroid since it was shown.
+                CardStateController.syncWithAnkiDroid(applicationContext)
+                loadDecks()
+            }
             decks.clear()
             decks.addAll(loaded.decks)
             selectedDeckIds.clear()
@@ -165,7 +171,7 @@ class MainActivity : ComponentActivity() {
         if (!selectedDeckIds.remove(deckId)) {
             selectedDeckIds.add(deckId)
         }
-        DeckSelection.save(this, selectedDeckIds.toList())
+        onDeckSelectionChanged()
     }
 
     private fun moveDeck(deckId: Long, offset: Int) {
@@ -173,7 +179,20 @@ class MainActivity : ComponentActivity() {
         val to = from + offset
         if (from == -1 || to !in selectedDeckIds.indices) return
         selectedDeckIds.add(to, selectedDeckIds.removeAt(from))
+        onDeckSelectionChanged()
+    }
+
+    private var deckChangeSync: Job? = null
+
+    /** Saves the selection and, once the user stops changing it, shows the new first card if it differs. */
+    private fun onDeckSelectionChanged() {
         DeckSelection.save(this, selectedDeckIds.toList())
+        deckChangeSync?.cancel()
+        deckChangeSync = lifecycleScope.launch {
+            delay(DECK_CHANGE_DEBOUNCE_MS)
+            val action = withContext(Dispatchers.IO) { CardStateController.syncWithAnkiDroid(applicationContext) }
+            if (action != CardSync.Action.NONE) refresh()
+        }
     }
 
     private fun startReviewing() {
@@ -183,23 +202,10 @@ class MainActivity : ComponentActivity() {
                 CardStateController.showNextCard(applicationContext, silent = false, notifyIfNone = true)
             }
             isStarting = false
-            // Start the periodic worker when the first card is assigned.
-            startPeriodicWorker()
+            // Start the periodic check when the first card is assigned.
+            PeriodicWorker.schedule(applicationContext)
             refresh()
         }
-    }
-
-    private fun startPeriodicWorker() {
-        Log.i("BackgroundService", "startBackgroundService called from MainActivity")
-        val periodicWorkRequest = PeriodicWorkRequest.Builder(
-            PeriodicWorker::class.java,
-            8, TimeUnit.HOURS
-        ).build()
-        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
-            "WORKER_ANKI",
-            ExistingPeriodicWorkPolicy.REPLACE,  // Use REPLACE to ensure only one instance is scheduled
-            periodicWorkRequest
-        )
     }
 
     private fun readSetupStatus(): SetupStatus {

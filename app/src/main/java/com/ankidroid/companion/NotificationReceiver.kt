@@ -43,8 +43,14 @@ class NotificationReceiver : BroadcastReceiver() {
                 Log.w("Notifications", "button $button is not valid for a card with ${localState.buttonCount} buttons")
                 return
             }
-            anki.reviewCard(localState.noteID, localState.cardOrd, localState.cardStartTime, ease)
             LockSession.onAnswered(context)
+            // The card may have been reviewed, buried or deleted in AnkiDroid since it was shown: answering it
+            // again would record a second review. Null means it couldn't be checked: answer as before.
+            if (anki.isCardDue(localState.deckId, localState.noteID, localState.cardOrd) == false) {
+                Log.i("Notifications", "card no longer due in AnkiDroid, not answering it")
+            } else {
+                anki.reviewCard(localState.noteID, localState.cardOrd, localState.cardStartTime, ease)
+            }
         }
 
         CardStateController.showNextCard(context, silent = true, notifyIfNone = true)

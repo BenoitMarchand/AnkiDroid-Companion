@@ -40,6 +40,9 @@ object LockSession {
         prefs(context).edit().putBoolean(KEY_ANSWERED, true).apply()
     }
 
+    /** Whether the notification was removed at unlock and waits for the next lock to be posted again. */
+    fun isHidden(context: Context): Boolean = prefs(context).getBoolean(KEY_HIDDEN, false)
+
     /** A card notification was posted: it is visible again. */
     fun onNotificationPosted(context: Context) {
         prefs(context).edit().putBoolean(KEY_HIDDEN, false).apply()
