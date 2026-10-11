@@ -28,7 +28,7 @@ Limits:
 
 ## Phase 0: Spike on a real device (~1 day)
 
-- [ ] 0.1 Minimal `WallpaperService` that draws fixed text, selectable in the system picker. Check: can it be set for the lock screen only on the target phone?
+- [x] 0.1 Minimal `WallpaperService` that draws fixed text, selectable in the system picker. Check: can it be set for the lock screen only on the target phone?
 - [ ] 0.2 Engine: detect lock/unlock (`KeyguardManager.isKeyguardLocked()` in `onVisibilityChanged`, plus a `USER_PRESENT` receiver registered inside the engine) and switch between drawing the card and the background.
 - [ ] 0.3 Check that the notification buttons work from the lock screen without unlocking.
 - [ ] 0.4 Record the results
@@ -80,3 +80,4 @@ How to test the spike (`CardWallpaperService.kt`, written but **not yet built or
 
 - 2026-10-11: The main test device runs stock Android 15+. The Google wallpaper picker supports separate live wallpapers on the lock screen, which is the best case for this approach. Older Android versions and other OEMs remain to be tested in 5.2 (the emulator is fine for API 26–33).
 - 2026-10-11: `WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER` opens the legacy live-wallpaper preview, which applies the wallpaper to **home and lock** (`which = 3`), replacing the home wallpaper. Apps can't set a lock-only live wallpaper themselves (`setWallpaperComponentWithFlags` is a system API). The button now shows instructions and opens `android.settings.WALLPAPER_SETTINGS` ("Wallpaper & style" on Pixel), where the user selects the lock screen.
+- 2026-10-11: Verified on the test device (Android 17): set through "Wallpaper & style" > Lock screen, the card wallpaper is bound to the lock screen only and the home wallpaper is unchanged. The engine logs each screen event twice, so two engine instances are probably alive (e.g. a leftover preview engine): check that previews are destroyed and that there are no duplicate redraws.
