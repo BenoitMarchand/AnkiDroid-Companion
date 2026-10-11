@@ -7,7 +7,7 @@ AnkiDroid Companion is an extension app for the AnkiDroid flashcard app. It lets
 
 ## Features
 
-- **Review from a notification**: the current card's question and answer are shown in a notification, with the Again / Hard / Good / Easy buttons. Only the buttons a card actually has are shown.
+- **Review from a notification**: the current card's question is shown in a notification. Tap **Show answer** to see the answer and the Again / Hard / Good / Easy buttons. Only the buttons a card actually has are shown.
 
 - **Lock screen card**: set the "AnkiDroid Companion card" live wallpaper on your lock screen, and the question of the card to review is shown there. Your home screen wallpaper is not changed. The notification is fully visible on the lock screen, so you can answer without unlocking.
 

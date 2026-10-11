@@ -1,77 +1,80 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Question, then "Show answer"; once revealed: the answer and the answer buttons. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/layoutExpanded"
-    android:layout_width="fill_parent"
-    android:layout_height="fill_parent"
-    android:gravity="center"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:layout_centerInParent="true"
-    android:weightSum="100">
+    android:paddingTop="4dp"
+    android:paddingBottom="8dp">
 
     <TextView
         android:id="@+id/textViewExpandedHeader"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Header"
-        android:padding="20dp"
-        android:textColor="@color/primaryText"
-        />
-
-    <!-- Horizontal line (using TextView with background color) -->
-    <TextView
+        style="@style/TextAppearance.Compat.Notification.Title"
         android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:background="@color/primaryText"
-        android:layout_marginLeft="15dp"
-        android:layout_marginRight="15dp"
-        />
-
-    <TextView
-        android:id="@+id/textViewContent"
-        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Content"
-        android:padding="20dp"
-        android:textColor="@color/primaryText"
-        />
+        android:paddingVertical="8dp" />
 
     <LinearLayout
-        android:layout_width="fill_parent"
+        android:id="@+id/answerGroup"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:gravity="center"
-        android:orientation="horizontal">
+        android:orientation="vertical"
+        android:visibility="gone">
 
-        <!-- Your custom layout components, e.g., TextViews, ImageViews, Buttons, etc. -->
-        <Button style="?android:attr/buttonBarButtonStyle"
-            android:id="@+id/button1"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:background="#d32f2e"
-            android:textColor="@color/white"
-            android:text="@string/again" />
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@color/notification_divider" />
 
-        <Button style="?android:attr/buttonBarButtonStyle"
-            android:id="@+id/button2"
-            android:layout_width="wrap_content"
+        <TextView
+            android:id="@+id/textViewContent"
+            style="@style/TextAppearance.Compat.Notification"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:background="#465a65"
-            android:textColor="@color/white"
-            android:text="@string/hard" />
+            android:paddingVertical="8dp" />
 
-        <Button style="?android:attr/buttonBarButtonStyle"
-            android:id="@+id/button3"
-            android:layout_width="wrap_content"
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:background="#4cb050"
-            android:textColor="@color/white"
-            android:text="@string/good" />
+            android:orientation="horizontal">
 
-        <Button style="?android:attr/buttonBarButtonStyle"
-            android:id="@+id/button4"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:background="#03a9f5"
-            android:textColor="@color/white"
-            android:text="@string/easy" />
+            <Button
+                android:id="@+id/button1"
+                style="@style/NotificationAnswerButton"
+                android:background="@drawable/bg_pill_again"
+                android:textColor="@color/again_button_text"
+                android:text="@string/again" />
+
+            <Button
+                android:id="@+id/button2"
+                style="@style/NotificationAnswerButton"
+                android:background="@drawable/bg_pill_hard"
+                android:textColor="@color/hard_button_text"
+                android:text="@string/hard" />
+
+            <Button
+                android:id="@+id/button3"
+                style="@style/NotificationAnswerButton"
+                android:background="@drawable/bg_pill_good"
+                android:textColor="@color/good_button_text"
+                android:text="@string/good" />
+
+            <Button
+                android:id="@+id/button4"
+                style="@style/NotificationAnswerButton"
+                android:background="@drawable/bg_pill_easy"
+                android:textColor="@color/easy_button_text"
+                android:text="@string/easy" />
+        </LinearLayout>
     </LinearLayout>
+
+    <Button
+        android:id="@+id/buttonShowAnswer"
+        style="@style/NotificationAnswerButton"
+        android:layout_width="match_parent"
+        android:layout_weight="0"
+        android:background="@drawable/bg_pill_show_answer"
+        android:textColor="@color/show_answer_button_text"
+        android:text="@string/show_answer" />
 </LinearLayout>

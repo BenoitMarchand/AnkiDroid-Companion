@@ -8,4 +8,8 @@
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
     <color name="primaryText">#FFFFFFFF</color>
+
+    <color name="show_answer_button_bg">#FF0842A0</color>
+    <color name="show_answer_button_text">#FFD3E3FD</color>
+    <color name="notification_divider">#33FFFFFF</color>
 </resources>

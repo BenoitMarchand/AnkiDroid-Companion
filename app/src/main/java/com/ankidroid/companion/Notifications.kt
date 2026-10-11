@@ -17,6 +17,7 @@ class Notifications {
         /** Shown in full on the lock screen, so a card can be answered without unlocking. */
         const val CHANNEL_ID = "lockscreen_review"
         const val NOTIFICATION_ID = 1
+        const val ACTION_SHOW_ANSWER = "ACTION_SHOW_ANSWER"
         private const val LEGACY_CHANNEL_ID = "channel_id"
 
         fun create(): Notifications = Notifications()
@@ -38,7 +39,14 @@ class Notifications {
         }
     }
 
-    fun showNotification(context: Context, card: CardInfo?, deckName: String, isSilent: Boolean) {
+    /**
+     * Posts the card notification, or the "Bravo" notification when [card] is null. The answer and the answer
+     * buttons are only shown once "Show answer" was tapped ([CardReview.isAnswerRevealed]).
+     *
+     * @param replace whether to remove the current notification first, which also closes its expanded view.
+     * Pass false to update it in place (e.g. to reveal the answer).
+     */
+    fun showNotification(context: Context, card: CardInfo?, deckName: String, isSilent: Boolean, replace: Boolean = true) {
         Log.i("Notifications", "showNotification called")
         createChannel(context)
         val builder: NotificationCompat.Builder
@@ -47,14 +55,19 @@ class Notifications {
         // There is a card to show, show a notification with the expanded view.
         if (card != null) {
             LockSession.onNotificationPosted(context)
+            val title = context.getString(R.string.notification_title_deck, deckName)
             val question = CardText.clean(card.q)
             val answer = CardText.clean(card.a)
+            val revealed = CardReview.isAnswerRevealed(context, card)
             collapsedView.setTextViewText(R.id.textViewCollapsedHeader, question)
-            collapsedView.setTextViewText(R.id.textViewCollapsedTitle, "Anki • $deckName")
+            collapsedView.setTextViewText(R.id.textViewCollapsedTitle, title)
 
             val expandedView = RemoteViews(context.packageName, R.layout.notification_expanded_full)
             expandedView.setTextViewText(R.id.textViewExpandedHeader, question)
             expandedView.setTextViewText(R.id.textViewContent, answer)
+            expandedView.setViewVisibility(R.id.answerGroup, if (revealed) View.VISIBLE else View.GONE)
+            expandedView.setViewVisibility(R.id.buttonShowAnswer, if (revealed) View.GONE else View.VISIBLE)
+            expandedView.setOnClickPendingIntent(R.id.buttonShowAnswer, createIntent(context, ACTION_SHOW_ANSWER))
 
             expandedView.setOnClickPendingIntent(R.id.button1, createIntent(context,"ACTION_BUTTON_1"))
             expandedView.setOnClickPendingIntent(R.id.button2, createIntent(context,"ACTION_BUTTON_2"))
@@ -71,13 +84,17 @@ class Notifications {
                 .setStyle(NotificationCompat.DecoratedCustomViewStyle())
                 .setCustomContentView(collapsedView)
                 .setCustomBigContentView(expandedView)
-                .setContentTitle("Anki • $deckName")
+                .setContentTitle(title)
+                // No tap action: on the lock screen, tapping expands the notification in place, while opening
+                // anything would ask to unlock first.
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .setSilent(isSilent)
+                .setOnlyAlertOnce(!replace)
                 .setOngoing(true)
         } else {
+            val title = context.getString(R.string.notification_title)
             collapsedView.setTextViewText(R.id.textViewCollapsedHeader, context.getString(R.string.all_cards_done))
-            collapsedView.setTextViewText(R.id.textViewCollapsedTitle, "Anki")
+            collapsedView.setTextViewText(R.id.textViewCollapsedTitle, title)
 
             val expandedView = RemoteViews(context.packageName, R.layout.notification_expanded_empty)
             expandedView.setTextViewText(R.id.textViewEmptyExpandedHeader, context.getString(R.string.all_cards_done))
@@ -89,7 +106,7 @@ class Notifications {
                 .setStyle(NotificationCompat.DecoratedCustomViewStyle())
                 .setCustomContentView(collapsedView)
                 .setCustomBigContentView(expandedView)
-                .setContentTitle("Anki")
+                .setContentTitle(title)
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .setSilent(isSilent)
                 .setOngoing(false)
@@ -100,7 +117,9 @@ class Notifications {
         val notificationManager: NotificationManager =
             context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
-        notificationManager.cancel(NOTIFICATION_ID) // Cancel the current notification before sending a new one
+        if (replace) {
+            notificationManager.cancel(NOTIFICATION_ID) // Cancel the current notification before sending a new one
+        }
         notificationManager.notify(NOTIFICATION_ID, notification)
     }
 
@@ -109,4 +128,5 @@ class Notifications {
         intent.action = action
         return PendingIntent.getBroadcast(context, 0, intent, PendingIntent.FLAG_IMMUTABLE)
     }
+
 }
