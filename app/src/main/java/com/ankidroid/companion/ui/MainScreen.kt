@@ -1,6 +1,7 @@
 package com.ankidroid.companion.ui
 
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,9 +17,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Lock
@@ -52,6 +55,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
@@ -159,9 +163,12 @@ private fun ReadyContent(
     lockOnlyWallpaper: Boolean,
     actions: MainScreenActions,
 ) {
-    // Selected decks first, in priority order, then the others alphabetically.
     val decksById = decks.associateBy { it.id }
-    val orderedDecks = selectedDeckIds.mapNotNull { decksById[it] } + decks.filter { it.id !in selectedDeckIds }
+    val selectedDecks = selectedDeckIds.mapNotNull { decksById[it] }
+    val tree = remember(decks) { buildDeckTree(decks) }
+    // Full names of the unfolded decks. Everything starts folded, like AnkiDroid's deck list.
+    var expanded by rememberSaveable { mutableStateOf(emptySet<String>()) }
+    val visibleNodes = flattenVisible(tree, expanded)
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -175,32 +182,108 @@ private fun ReadyContent(
     ) {
         item(key = "current") { CurrentCardCard(currentCard) }
         item(key = "lock") { LockScreenCard(lockOnlyWallpaper, actions.onOpenWallpaperSettings) }
-        item(key = "decks-header") {
-            Column(Modifier.padding(top = 16.dp, bottom = 4.dp, start = 4.dp, end = 4.dp)) {
-                Text(stringResource(R.string.decks), style = MaterialTheme.typography.titleMedium)
-                Spacer(Modifier.height(4.dp))
+
+        item(key = "order-header") {
+            SectionHeader(stringResource(R.string.review_order), stringResource(R.string.review_order_explanation))
+        }
+        if (selectedDecks.isEmpty()) {
+            item(key = "order-empty") {
                 Text(
-                    stringResource(R.string.decks_explanation),
+                    stringResource(R.string.review_order_empty),
+                    Modifier.padding(horizontal = 4.dp),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
+        itemsIndexed(selectedDecks, key = { _, deck -> "order-${deck.id}" }) { index, deck ->
+            SelectedDeckRow(
+                deck = deck,
+                position = index,
+                isLast = index == selectedDecks.lastIndex,
+                onMove = { offset -> actions.onMoveDeck(deck.id, offset) },
+                onRemove = { actions.onToggleDeck(deck.id) },
+                modifier = Modifier.animateItem(),
+            )
+        }
+
+        item(key = "tree-header") { SectionHeader(stringResource(R.string.all_decks), null) }
         if (decks.isEmpty()) {
             item(key = "no-decks") {
                 Text(stringResource(R.string.no_decks), Modifier.padding(4.dp), style = MaterialTheme.typography.bodyMedium)
             }
+        } else {
+            item(key = "tree") {
+                // One card for the whole tree, with rows inside, as in AnkiDroid's deck list.
+                Card(
+                    Modifier.fillMaxWidth().animateContentSize(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                ) {
+                    Column(Modifier.padding(vertical = 4.dp)) {
+                        visibleNodes.forEach { node ->
+                            val deckId = node.deck?.id
+                            DeckTreeRow(
+                                node = node,
+                                isExpanded = node.fullName in expanded,
+                                position = if (deckId == null) -1 else selectedDeckIds.indexOf(deckId),
+                                onToggleExpanded = {
+                                    expanded = if (node.fullName in expanded) expanded - node.fullName else expanded + node.fullName
+                                },
+                                onToggleSelected = { if (deckId != null) actions.onToggleDeck(deckId) },
+                            )
+                        }
+                    }
+                }
+            }
         }
-        items(orderedDecks, key = { it.id }) { deck ->
-            val position = selectedDeckIds.indexOf(deck.id)
-            DeckRow(
-                deck = deck,
-                position = position,
-                isLast = position == selectedDeckIds.lastIndex,
-                onToggle = { actions.onToggleDeck(deck.id) },
-                onMove = { offset -> actions.onMoveDeck(deck.id, offset) },
-                modifier = Modifier.animateItem(),
-            )
+    }
+}
+
+/** A deck in the tree. [deck] is null for a parent that AnkiDroid didn't list (names are just paths). */
+private class DeckNode(val fullName: String, val depth: Int) {
+    var deck: DeckItem? = null
+    val children = mutableListOf<DeckNode>()
+    val shortName: String get() = fullName.substringAfterLast("::")
+}
+
+/** Builds the deck hierarchy from AnkiDroid's "Parent::Child" names, sorted alphabetically at each level. */
+private fun buildDeckTree(decks: List<DeckItem>): List<DeckNode> {
+    val nodes = HashMap<String, DeckNode>()
+    val roots = mutableListOf<DeckNode>()
+
+    fun nodeFor(fullName: String): DeckNode = nodes.getOrPut(fullName) {
+        val parentName = fullName.substringBeforeLast("::", "")
+        val node = DeckNode(fullName, depth = fullName.split("::").size - 1)
+        if (parentName.isEmpty()) roots.add(node) else nodeFor(parentName).children.add(node)
+        node
+    }
+
+    decks.forEach { nodeFor(it.name).deck = it }
+    fun sort(list: MutableList<DeckNode>) {
+        list.sortBy { it.shortName.lowercase() }
+        list.forEach { sort(it.children) }
+    }
+    sort(roots)
+    return roots
+}
+
+private fun flattenVisible(nodes: List<DeckNode>, expanded: Set<String>): List<DeckNode> = buildList {
+    fun visit(list: List<DeckNode>) {
+        list.forEach { node ->
+            add(node)
+            if (node.fullName in expanded) visit(node.children)
+        }
+    }
+    visit(nodes)
+}
+
+@Composable
+private fun SectionHeader(title: String, subtitle: String?) {
+    Column(Modifier.padding(top = 16.dp, bottom = 4.dp, start = 4.dp, end = 4.dp)) {
+        Text(title, style = MaterialTheme.typography.titleMedium)
+        if (subtitle != null) {
+            Spacer(Modifier.height(4.dp))
+            Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -306,39 +389,21 @@ private fun LockScreenCard(lockOnlyWallpaper: Boolean, onOpenWallpaperSettings: 
 }
 
 @Composable
-private fun DeckRow(
+private fun SelectedDeckRow(
     deck: DeckItem,
     position: Int,
     isLast: Boolean,
-    onToggle: () -> Unit,
     onMove: (Int) -> Unit,
+    onRemove: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val selected = position >= 0
     Card(
         modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = if (selected) MaterialTheme.colorScheme.secondaryContainer
-            else MaterialTheme.colorScheme.surfaceContainerLow,
-        ),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
     ) {
-        Row(
-            Modifier.clickable(onClick = onToggle).padding(start = 4.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Checkbox(checked = selected, onCheckedChange = { onToggle() })
-            if (selected) {
-                Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp)) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Text(
-                            "${position + 1}",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onPrimary,
-                        )
-                    }
-                }
-                Spacer(Modifier.width(12.dp))
-            }
+        Row(Modifier.padding(start = 12.dp, end = 4.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            PositionBadge(position)
+            Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f).padding(vertical = 4.dp)) {
                 deck.parentPath?.let {
                     Text(
@@ -352,17 +417,79 @@ private fun DeckRow(
                 Text(deck.shortName, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 DeckCounts(deck)
             }
-            if (selected) {
-                IconButton(onClick = { onMove(-1) }, enabled = position > 0) {
-                    Icon(Icons.Filled.KeyboardArrowUp, contentDescription = stringResource(R.string.move_up))
-                }
-                IconButton(onClick = { onMove(1) }, enabled = !isLast) {
-                    Icon(Icons.Filled.KeyboardArrowDown, contentDescription = stringResource(R.string.move_down))
-                }
+            IconButton(onClick = { onMove(-1) }, enabled = position > 0) {
+                Icon(Icons.Filled.KeyboardArrowUp, contentDescription = stringResource(R.string.move_up))
+            }
+            IconButton(onClick = { onMove(1) }, enabled = !isLast) {
+                Icon(Icons.Filled.KeyboardArrowDown, contentDescription = stringResource(R.string.move_down))
+            }
+            IconButton(onClick = onRemove) {
+                Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.remove_deck))
             }
         }
     }
 }
+
+@Composable
+private fun DeckTreeRow(
+    node: DeckNode,
+    isExpanded: Boolean,
+    position: Int,
+    onToggleExpanded: () -> Unit,
+    onToggleSelected: () -> Unit,
+) {
+    val deck = node.deck
+    val hasChildren = node.children.isNotEmpty()
+    val chevronRotation by animateFloatAsState(if (isExpanded) 90f else 0f, label = "chevron")
+
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clickable(enabled = deck != null || hasChildren) { if (deck != null) onToggleSelected() else onToggleExpanded() }
+            .padding(start = (node.depth.coerceAtMost(MAX_INDENT_LEVELS) * 20).dp, end = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (hasChildren) {
+            IconButton(onClick = onToggleExpanded) {
+                Icon(
+                    Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = stringResource(if (isExpanded) R.string.collapse else R.string.expand),
+                    modifier = Modifier.rotate(chevronRotation),
+                )
+            }
+        } else {
+            Spacer(Modifier.width(48.dp))
+        }
+        Column(Modifier.weight(1f).padding(vertical = 10.dp)) {
+            Text(
+                node.shortName,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = if (node.depth == 0) FontWeight.Medium else FontWeight.Normal,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (deck != null) DeckCounts(deck)
+        }
+        if (position >= 0) {
+            PositionBadge(position)
+        }
+        if (deck != null) {
+            Checkbox(checked = position >= 0, onCheckedChange = { onToggleSelected() })
+        }
+    }
+}
+
+@Composable
+private fun PositionBadge(position: Int) {
+    Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp)) {
+        Box(contentAlignment = Alignment.Center) {
+            Text("${position + 1}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onPrimary)
+        }
+    }
+}
+
+/** Deeper levels aren't indented further, so names keep enough room on a phone screen. */
+private const val MAX_INDENT_LEVELS = 4
 
 @Composable
 private fun DeckCounts(deck: DeckItem) {

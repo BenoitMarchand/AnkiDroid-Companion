@@ -13,8 +13,13 @@
     <string name="current_card_none">No card in the notification yet. Select your decks, then tap Start reviewing.</string>
     <string name="current_card_done">No card to review right now in the selected decks. A new one will show up when it\'s time to study.</string>
     <string name="from_deck">From %1$s</string>
-    <string name="decks">Decks</string>
-    <string name="decks_explanation">Cards come from the first selected deck that has one to review. Cards with sound in the question are skipped. Use the arrows to set the order.</string>
+    <string name="review_order">Review order</string>
+    <string name="review_order_explanation">Cards come from the first deck below that has one to review, then the next one. A deck includes its subdecks. Cards with sound in the question are skipped.</string>
+    <string name="review_order_empty">Tick decks in the list below to review them.</string>
+    <string name="all_decks">All decks</string>
+    <string name="remove_deck">Remove from review order</string>
+    <string name="expand">Expand</string>
+    <string name="collapse">Collapse</string>
     <string name="no_decks">No decks found in AnkiDroid.</string>
     <string name="deck_counts">%1$d new · %2$d learning · %3$d review</string>
     <string name="move_up">Move up</string>

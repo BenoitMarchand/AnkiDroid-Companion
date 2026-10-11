@@ -36,7 +36,7 @@ Single module `:app`, package `com.ankidroid.companion`, mixed Java + Kotlin. Th
 | File | Role |
 |---|---|
 | `MainActivity.kt` | Creates the notification channel (`"channel_id"`), requests the AnkiDroid and notification permissions, loads decks and due counts off the main thread, and holds the screen state. "Start reviewing" shows the next card and schedules the worker. |
-| `ui/MainScreen.kt` | Compose UI: current card, lock screen wallpaper setup, and the deck list (select decks, order them with up/down arrows). Stateless; actions go through `MainScreenActions`. |
+| `ui/MainScreen.kt` | Compose UI: current card, lock screen wallpaper setup, the "Review order" list (selected decks, reordered with up/down arrows) and the "All decks" tree built from `Parent::Child` names (fold/unfold, checkbox to select). Stateless; actions go through `MainScreenActions`. |
 | `DeckSelection.kt` | The selected decks in priority order (SharedPreferences `com.ankidroid.companion.deck_selection`). |
 | `CardStateController.kt` | Single entry point for "move to the next card": `showNextCard()` finds the next card in the selected decks, stores it and updates the notification. Does ContentProvider I/O, so call it off the main thread. |
 | `AnkiDroidHelper.java` | The only gateway to AnkiDroid: deck lookup and due counts, `queryNextCard(deckIds)` (first displayable due card of the first deck that has one), `queryCurrentScheduledCard(deckId)` (via `FlashCardsContract.ReviewInfo`, scans the next 50 due cards), `reviewCard(noteId, ord, startTime, ease)`, and persistence of the current state in SharedPreferences (`com.ichi2.anki.api.state`, JSON under `CURRENT_STATE`, including the question text). |
