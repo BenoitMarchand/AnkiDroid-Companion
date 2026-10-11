@@ -9,14 +9,15 @@
     <color name="white">#FFFFFFFF</color>
     <color name="primaryText">#FF000000</color>
 
-    <!-- Answer buttons (notification): a scale from "forgot" to "easy", the same in light and dark mode. -->
-    <color name="again_button_bg">#FFC62828</color>
+    <!-- Answer buttons (notification): a scale from "forgot" to "easy", the same in light and dark mode,
+         white text on each (dark enough to stay readable). -->
+    <color name="again_button_bg">#FFB71C1C</color>
     <color name="again_button_text">#FFFFFFFF</color>
-    <color name="hard_button_bg">#FFE65100</color>
+    <color name="hard_button_bg">#FFD84315</color>
     <color name="hard_button_text">#FFFFFFFF</color>
-    <color name="good_button_bg">#FF7CB342</color>
-    <color name="good_button_text">#FF1B3300</color>
-    <color name="easy_button_bg">#FF2E7D32</color>
+    <color name="good_button_bg">#FF558B2F</color>
+    <color name="good_button_text">#FFFFFFFF</color>
+    <color name="easy_button_bg">#FF1B5E20</color>
     <color name="easy_button_text">#FFFFFFFF</color>
     <!-- "Show answer": the accent color (dynamic on Android 12+, see values-v31). -->
     <color name="show_answer_button_bg">#FFD3E3FD</color>
