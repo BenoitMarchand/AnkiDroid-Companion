@@ -27,6 +27,7 @@ Limits:
 - [x] **Unused notification**: if no button was pressed during the lock session, the notification is removed on unlock and posted again at the next lock. *(2026-10-11)*
 - [x] **Cards that can't be displayed**: cards with sound in the question are skipped. They stay due in AnkiDroid: fetching due cards is read-only, only an answer records a review. *(2026-10-11)*
 - [x] **Several decks**: the user selects decks and orders them. Cards come from the first deck that has a displayable due card; a deck is passed over once all its due cards were skipped, or when nothing is due. *(2026-10-11)*
+- [x] **Parent decks**: a parent deck gives cards from all its subdecks, mixed by AnkiDroid's scheduler, exactly like studying it in AnkiDroid. No per-subdeck ordering. *(2026-10-11)*
 - [ ] Should the notification also time out after N minutes on the lock screen? (#6)
 
 ## Phase 0: Spike on a real device
