@@ -19,15 +19,22 @@
 .PARAMETER Logcat
     After launching, stream the app's logs (tags CardWallpaper, Notifications, BackgroundService).
 
+.PARAMETER Probe
+    After installing, run AnkiDroidProbeTest on the device (read-only measurements of AnkiDroid's API, issue #21)
+    and print its results. AnkiDroid is first stopped if it's in the background, to measure a cold start.
+    The app is installed with `adb install -r` so its data is kept (Gradle's connectedAndroidTest uninstalls it).
+
 .EXAMPLE
     .\scripts\install.ps1
     .\scripts\install.ps1 -Wait -Logcat
+    .\scripts\install.ps1 -Probe
 #>
 param(
     [string]$Serial,
     [switch]$Wait,
     [switch]$NoLaunch,
-    [switch]$Logcat
+    [switch]$Logcat,
+    [switch]$Probe
 )
 
 $ErrorActionPreference = 'Stop'
@@ -182,6 +189,24 @@ try {
     if ($LASTEXITCODE -ne 0) { Fail "Gradle failed (exit code $LASTEXITCODE)." }
 } finally {
     Pop-Location
+}
+
+if ($Probe) {
+    Write-Step 'Running the AnkiDroid probe'
+    Push-Location $ProjectRoot
+    try {
+        & .\gradlew.bat assembleDebugAndroidTest --console=plain -q
+        if ($LASTEXITCODE -ne 0) { Fail "Gradle failed (exit code $LASTEXITCODE)." }
+    } finally {
+        Pop-Location
+    }
+    $testApk = Join-Path $ProjectRoot 'app\build\outputs\apk\androidTest\debug\app-debug-androidTest.apk'
+    & $adb -s $device.Serial install -r -t $testApk | Out-Null
+    # "am kill" only stops AnkiDroid if it's in the background: work in progress on screen is never lost.
+    & $adb -s $device.Serial shell am kill com.ichi2.anki
+    & $adb -s $device.Serial logcat -c
+    & $adb -s $device.Serial shell am instrument -w -e class "$AppId.AnkiDroidProbeTest" "$AppId.test/androidx.test.runner.AndroidJUnitRunner"
+    & $adb -s $device.Serial logcat -d -s AnkiProbe:I
 }
 
 if (-not $NoLaunch) {
