@@ -10,15 +10,8 @@
     <string name="wallpaper_description">Shows the card to review on the lock screen.</string>
     <string name="set_lock_wallpaper">Set lock screen wallpaper</string>
     <string name="open_wallpaper_settings">Open wallpaper settings</string>
-    <string name="set_lock_wallpaper_instructions">In the wallpaper settings:
-
-1. Select the <b>Lock screen</b> preview (not Home screen).
-2. Open the wallpaper list and choose <b>Live wallpapers</b>, then <b>AnkiDroid Companion card</b>.
-3. When asked where to apply it, choose <b>Lock screen</b> only.
-
-Your home screen wallpaper stays unchanged.</string>
-    <string name="set_lock_wallpaper_instructions_both_screens">On this Android version, a live wallpaper is applied to both the home and the lock screen. The card is only shown while the phone is locked; the home screen will show a plain dark background.
-
-In the wallpaper settings, open <b>Live wallpapers</b> and choose <b>AnkiDroid Companion card</b>.</string>
+    <string name="set_lock_wallpaper_instructions">In the wallpaper settings:\n\n1. Select the <b>Lock screen</b> preview (not Home screen).\n2. Open the wallpaper list and choose <b>Live wallpapers</b>, then <b>AnkiDroid Companion card</b>.\n3. When asked where to apply it, choose <b>Lock screen</b> only.\n\nYour home screen wallpaper stays unchanged.</string>
+    <string name="set_lock_wallpaper_instructions_both_screens">On this Android version, a live wallpaper is applied to both the home and the lock screen. The card is only shown while the phone is locked; the home screen will show a plain dark background.\n\nIn the wallpaper settings, open <b>Live wallpapers</b> and choose <b>AnkiDroid Companion card</b>.</string>
+    <string name="notification_permission_denied">Notifications are disabled: cards can\'t be reviewed from the notification. Enable them in the app\'s system settings.</string>
     <string name="permission_not_granted">Permission to read AnkiDroid cards was not granted.</string>
 </resources>

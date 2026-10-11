@@ -51,7 +51,7 @@ How to test the spike (`CardWallpaperService.kt`, written but **not yet built or
 - [ ] 2.1 Add a `lockscreen_review` channel with `lockscreenVisibility = PUBLIC`, and call `setVisibility(VISIBILITY_PUBLIC)` on the notification.
 - [ ] 2.2 Track "answered during this lock session". On unlock, if nothing was answered, cancel the notification. On the next lock (`SCREEN_OFF`), post it again.
 - [ ] 2.3 The lock/unlock receivers live in the wallpaper engine when it's active. Otherwise, fall back to the current behavior (a permanent notification, no auto-remove).
-- [ ] 2.4 Request `POST_NOTIFICATIONS` at runtime on API 33+.
+- [x] 2.4 Request `POST_NOTIFICATIONS` at runtime on API 33+.
 
 ## Phase 3: Live wallpaper (~2 days)
 
