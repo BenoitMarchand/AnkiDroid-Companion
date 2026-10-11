@@ -1,0 +1,25 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Android: install on device",
+            "detail": "Build the debug APK, install it on the connected device and launch the app",
+            "type": "shell",
+            "command": "powershell",
+            "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}/scripts/install.ps1", "-Wait"],
+            "group": { "kind": "build", "isDefault": true },
+            "presentation": { "reveal": "always", "panel": "dedicated", "focus": true },
+            "problemMatcher": []
+        },
+        {
+            "label": "Android: install on device + logs",
+            "detail": "Same as above, then stream the app's logs",
+            "type": "shell",
+            "command": "powershell",
+            "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}/scripts/install.ps1", "-Wait", "-Logcat"],
+            "group": "build",
+            "presentation": { "reveal": "always", "panel": "dedicated", "focus": true },
+            "problemMatcher": []
+        }
+    ]
+}
