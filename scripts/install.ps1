@@ -3,7 +3,7 @@
     Builds the debug APK, installs it on a connected Android device and launches the app.
 
 .DESCRIPTION
-    1. Locates the Android SDK (adb) and a JDK that Gradle 8.2 can run on (17-20).
+    1. Locates the Android SDK (adb) and a JDK 17 or newer (required by Gradle 9 / AGP 9).
     2. Detects connected devices (USB or Wi-Fi debugging) and lets you pick one if several are connected.
     3. Runs `gradlew installDebug` on that device, then starts MainActivity.
 
@@ -72,7 +72,7 @@ function Get-JavaMajorVersion([string]$JavaHome) {
 }
 
 function Find-Jdk {
-    # Gradle 8.2 runs on JDK 8-20 and AGP 8.2 needs 17+, so accept 17-20 and prefer 17 (same as CI).
+    # Gradle 9 and AGP 9 need JDK 17+. JDK_HOME / JAVA_HOME win when valid, otherwise the newest JDK found.
     $roots = @(
         (Join-Path $env:USERPROFILE '.jdks'),            # JDKs downloaded by Android Studio / IntelliJ
         (Join-Path $env:USERPROFILE '.gradle\jdks'),
@@ -82,7 +82,12 @@ function Find-Jdk {
         "$env:ProgramFiles\Zulu",
         "$env:ProgramFiles\Amazon Corretto"
     )
-    $candidates = @($env:JDK17_HOME, $env:JAVA_HOME)
+    foreach ($preferred in @($env:JDK_HOME, $env:JAVA_HOME)) {
+        if ($preferred -and (Get-JavaMajorVersion $preferred) -ge 17) {
+            return [pscustomobject]@{ Path = $preferred; Major = (Get-JavaMajorVersion $preferred) }
+        }
+    }
+    $candidates = @()
     foreach ($root in $roots) {
         if (Test-Path $root) { $candidates += (Get-ChildItem $root -Directory | ForEach-Object FullName) }
     }
@@ -91,9 +96,9 @@ function Find-Jdk {
 
     $found = foreach ($dir in ($candidates | Where-Object { $_ } | Select-Object -Unique)) {
         $major = Get-JavaMajorVersion $dir
-        if ($major -ge 17 -and $major -le 20) { [pscustomobject]@{ Path = $dir; Major = $major } }
+        if ($major -ge 17) { [pscustomobject]@{ Path = $dir; Major = $major } }
     }
-    return $found | Sort-Object Major | Select-Object -First 1
+    return $found | Sort-Object Major -Descending | Select-Object -First 1
 }
 
 # --- Devices -----------------------------------------------------------------
@@ -155,11 +160,11 @@ $env:ANDROID_HOME = $sdk
 $adb = Join-Path $sdk 'platform-tools\adb.exe'
 Write-Host "    $sdk"
 
-Write-Step 'Locating JDK 17'
+Write-Step 'Locating JDK'
 $jdk = Find-Jdk
 if (-not $jdk) {
-    Fail ("No JDK 17-20 found (Gradle 8.2 can't run on newer JDKs). In Android Studio: Settings > Build, Execution, " +
-          "Deployment > Build Tools > Gradle > Gradle JDK > Download JDK > version 17. Or set JDK17_HOME.")
+    Fail ("No JDK 17+ found. Install Android Studio (it bundles one), or download one from Android Studio: " +
+          "Settings > Build, Execution, Deployment > Build Tools > Gradle > Gradle JDK > Download JDK. Or set JDK_HOME.")
 }
 $env:JAVA_HOME = $jdk.Path
 Write-Host "    $($jdk.Path) (Java $($jdk.Major))"

@@ -34,7 +34,7 @@ Limits:
 - [ ] 0.4 Record the results
 
 How to test the spike (`CardWallpaperService.kt`, written but **not yet built or run**):
-1. Build with JDK 17 (Gradle 8.2 does not run on newer JDKs) and install the debug APK.
+1. Build and install the debug APK (in VS Code: Ctrl+Shift+B, which runs `scripts/install.ps1`).
 2. In the app, pick a deck and tap **Refresh**, then tap **Set lock screen wallpaper** and choose "Lock screen" in the system picker.
 3. Lock the phone: the question should be on the lock screen. Answer from the notification: the wallpaper should switch to the next card.
 4. Watch the logs: `adb logcat -s CardWallpaper Notifications`.

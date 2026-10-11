@@ -18,7 +18,7 @@ AnkiDroid Companion is a small Android app that lets the user review AnkiDroid f
 - Windows: `.\gradlew.bat assembleDebug` · Unix: `./gradlew assembleDebug`
 - Full build + lint + unit tests: `./gradlew build`
 - Unit tests: `./gradlew test` · Instrumented tests (device needed): `./gradlew connectedAndroidTest`
-- Install on a connected device: `./gradlew installDebug`, or on Windows `scripts/install.ps1` (finds the SDK and a JDK 17–20, detects the device, installs and launches; `-Wait`, `-Serial`, `-Logcat`, `-NoLaunch`). Also available in VS Code as the default build task (Ctrl+Shift+B).
+- Install on a connected device: `./gradlew installDebug`, or on Windows `scripts/install.ps1` (finds the SDK and a JDK 17+, detects the device, installs and launches; `-Wait`, `-Serial`, `-Logcat`, `-NoLaunch`). Also available in VS Code as the default build task (Ctrl+Shift+B).
 - APK output: `app/build/outputs/apk/debug/app-debug.apk`
 - `minSdk 26`, `targetSdk 34`, `compileSdk 34`. Anything newer than API 26 must be guarded with `Build.VERSION.SDK_INT` checks.
 - Manual testing needs a real device or emulator with AnkiDroid installed and at least one deck with due cards. There are no meaningful automated tests yet (only the template `Example*Test` files).
