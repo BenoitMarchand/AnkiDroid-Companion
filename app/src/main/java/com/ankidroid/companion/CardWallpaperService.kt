@@ -17,7 +17,6 @@ import android.text.TextPaint
 import android.util.Log
 import android.view.SurfaceHolder
 import androidx.core.content.ContextCompat
-import androidx.core.text.HtmlCompat
 
 /**
  * Live wallpaper that shows the current due card while the device is locked.
@@ -120,7 +119,7 @@ class CardWallpaperService : WallpaperService() {
             if (state.noteID == -1L && state.cardOrd == -1) {
                 return "Congrats! You've finished the deck!"
             }
-            return HtmlCompat.fromHtml(state.question, HtmlCompat.FROM_HTML_MODE_LEGACY).toString().trim()
+            return CardText.clean(state.question)
         }
 
         private fun drawCard(canvas: Canvas, text: String) {

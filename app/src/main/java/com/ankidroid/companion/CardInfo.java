@@ -8,6 +8,7 @@ public class CardInfo {
     String q = "", a = "";
     int cardOrd;
     long noteID;
+    long deckId = -1;
     int buttonCount;
     JSONArray nextReviewTexts = null;
     JSONArray fileNames;

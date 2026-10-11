@@ -31,36 +31,40 @@ AnkiDroid Companion is a small Android app that lets the user review AnkiDroid f
 
 ## Architecture
 
-Single module `:app`, package `com.ankidroid.companion`, mixed Java + Kotlin. The UI uses classic XML layouts (`res/layout/main_layout.xml`). Compose is configured, but only the unused `Spinner.kt` / `ui/theme` use it.
+Single module `:app`, package `com.ankidroid.companion`, mixed Java + Kotlin. The main screen is Jetpack Compose (Material 3, dynamic colors); the notification uses XML `RemoteViews` layouts.
 
 | File | Role |
 |---|---|
-| `MainActivity.kt` | Creates the notification channel (`"channel_id"`), checks API availability and permission, shows the deck picker, and on "Refresh" stores the deck, fetches the first due card, shows the notification and schedules the worker. |
-| `AnkiDroidHelper.java` | The only gateway to AnkiDroid: deck lookup, `queryCurrentScheduledCard(deckId)` (via `FlashCardsContract.ReviewInfo`), `reviewCard(noteId, ord, startTime, ease)`, and persistence of the current state in SharedPreferences (`com.ichi2.anki.api.state`, JSON under `CURRENT_STATE`). |
+| `MainActivity.kt` | Creates the notification channel (`"channel_id"`), requests the AnkiDroid and notification permissions, loads decks and due counts off the main thread, and holds the screen state. "Start reviewing" shows the next card and schedules the worker. |
+| `ui/MainScreen.kt` | Compose UI: current card, lock screen wallpaper setup, and the deck list (select decks, order them with up/down arrows). Stateless; actions go through `MainScreenActions`. |
+| `DeckSelection.kt` | The selected decks in priority order (SharedPreferences `com.ankidroid.companion.deck_selection`). |
+| `CardStateController.kt` | Single entry point for "move to the next card": `showNextCard()` finds the next card in the selected decks, stores it and updates the notification. Does ContentProvider I/O, so call it off the main thread. |
+| `AnkiDroidHelper.java` | The only gateway to AnkiDroid: deck lookup and due counts, `queryNextCard(deckIds)` (first displayable due card of the first deck that has one), `queryCurrentScheduledCard(deckId)` (via `FlashCardsContract.ReviewInfo`, scans the next 50 due cards), `reviewCard(noteId, ord, startTime, ease)`, and persistence of the current state in SharedPreferences (`com.ichi2.anki.api.state`, JSON under `CURRENT_STATE`, including the question text). |
+| `CardText.kt` | Turns card HTML into displayed text (strips HTML, sound and `[[type:...]]` tags) and detects sound in a question. |
 | `Notifications.kt` | Builds the single notification (ID `1`) with custom `RemoteViews` (`notification_collapsed`, `notification_expanded_full`, `notification_expanded_empty`). Buttons send `ACTION_BUTTON_1..4` broadcasts. |
-| `NotificationReceiver.kt` | Handles the button broadcasts: reviews the stored card with ease 1–4, fetches the next card, and re-posts the notification (or the "deck finished" one). |
-| `PeriodicWorker.kt` | WorkManager job (`"WORKER_ANKI"`, every 8 h). When the stored state is the empty card, it checks for new due cards and re-posts the notification. |
+| `NotificationReceiver.kt` | Handles the button broadcasts on a background thread (`goAsync()`): reviews the stored card with ease 1–4, then `CardStateController.showNextCard()`. |
+| `PeriodicWorker.kt` | WorkManager job (`"WORKER_ANKI"`, every 8 h). When the stored state is the empty card, it looks for a new card and shows it. |
+| `CardWallpaperService.kt` | Live wallpaper for the lock screen: draws the current question and redraws when `CURRENT_STATE` changes. |
 | `CardInfo.java` / `StoredState.java` | Plain data holders. An "empty" state is represented by `noteID == -1 && cardOrd == -1`. |
 
 ### Core flow
 
 ```
-MainActivity.onClickRefresh ──► AnkiDroidHelper.queryCurrentScheduledCard ──► storeState ──► Notifications.showNotification
-        ▲                                                                                             │ button tap
-PeriodicWorker (8h, only when state is empty)                       NotificationReceiver ◄────────────┘
-                                                                     reviewCard(ease) → next card → showNotification
+MainActivity "Start reviewing" ──► CardStateController.showNextCard ──► AnkiDroidHelper.queryNextCard(selected decks)
+        ▲                                   │                             └─ per deck, in order: first due card without sound in the question
+PeriodicWorker (8h, when state is empty) ───┤
+NotificationReceiver: reviewCard(ease) ─────┘──► storeState ──► Notifications.showNotification + lock screen wallpaper redraw
 ```
 
-Any new surface that shows the "current card" (widget, lock screen, etc.) should hook into the same points: after `storeState(...)` and wherever `showNotification(...)` is called. Ideally, refactor these into one "current card changed" entry point instead of duplicating calls.
+Cards are never skipped in AnkiDroid's scheduler: fetching due cards is read-only, and only `reviewCard()` records a review. Cards that can't be displayed simply stay due in AnkiDroid.
 
 ## Conventions & gotchas
 
-- Card content: only `QUESTION_SIMPLE` / `ANSWER_PURE` are used. HTML and media are not rendered, so long or HTML cards display poorly (a known limitation).
+- Card content: only `QUESTION_SIMPLE` / `ANSWER_PURE` are used, cleaned by `CardText`. Media is not rendered; cards with sound in the question are skipped (they stay due in AnkiDroid).
 - Ease values follow the Anki scheduler: 1 = Again, 2 = Hard, 3 = Good, 4 = Easy (`AnkiDroidHelper.EASE_1..4`). AnkiDroid's API has **no 5th ease**. `CardInfo.buttonCount` can be < 4 for some cards and isn't honored yet.
-- `NotificationReceiver` runs on the main thread and does ContentProvider I/O synchronously. Keep that work short, or move it to `goAsync()` / WorkManager.
+- AnkiDroid queries are ContentProvider I/O: keep them off the main thread (coroutines on `Dispatchers.IO` in the activity, `goAsync()` in receivers).
 - PendingIntents must be `FLAG_IMMUTABLE` (targetSdk 31+). Distinct actions currently disambiguate the button intents; keep actions unique or use distinct request codes.
 - Implicit broadcasts (`SCREEN_OFF`, `SCREEN_ON`, `USER_PRESENT`) **cannot** be registered in the manifest on API 26+. They need a runtime-registered receiver inside a long-lived component (for example a foreground service).
-- `POST_NOTIFICATIONS` is declared, but it is not requested at runtime on API 33+. The user has to enable notifications manually.
-- Many UI strings are hard-coded. Put new user-facing strings in `res/values/strings.xml`.
+- Put user-facing strings in `res/values/strings.xml` (some older ones are still hard-coded in `Notifications.kt`).
 - Logging uses `Log.i` with the tags `"Notifications"` and `"BackgroundService"`.
 - Match the existing style: Kotlin for new Android components. The Java classes may stay Java unless they're being refactored anyway.
