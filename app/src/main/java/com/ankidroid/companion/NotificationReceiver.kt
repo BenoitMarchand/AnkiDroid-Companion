@@ -11,11 +11,11 @@ class NotificationReceiver : BroadcastReceiver() {
         Log.i("Notifications", "onReceive called")
         if (context == null)
             return
-        val ease = when (intent?.action) {
-            "ACTION_BUTTON_1" -> AnkiDroidHelper.EASE_1
-            "ACTION_BUTTON_2" -> AnkiDroidHelper.EASE_2
-            "ACTION_BUTTON_3" -> AnkiDroidHelper.EASE_3
-            "ACTION_BUTTON_4" -> AnkiDroidHelper.EASE_4
+        val button = when (intent?.action) {
+            "ACTION_BUTTON_1" -> AnswerButtons.AGAIN
+            "ACTION_BUTTON_2" -> AnswerButtons.HARD
+            "ACTION_BUTTON_3" -> AnswerButtons.GOOD
+            "ACTION_BUTTON_4" -> AnswerButtons.EASY
             else -> return
         }
 
@@ -24,20 +24,25 @@ class NotificationReceiver : BroadcastReceiver() {
         val appContext = context.applicationContext
         thread {
             try {
-                respondCard(appContext, ease)
+                respondCard(appContext, button)
             } finally {
                 pendingResult.finish()
             }
         }
     }
 
-    private fun respondCard(context: Context, ease: Int) {
+    private fun respondCard(context: Context, button: Int) {
         Log.i("Notifications", "respondCard called")
         val anki = AnkiDroidHelper(context)
         val localState = anki.storedState
 
         if (localState != null && localState.noteID != -1L) {
             Log.i("Notifications", "localState.cardOrd: ${localState.cardOrd}, localState.noteID: ${localState.noteID}")
+            val ease = AnswerButtons.easeFor(button, localState.buttonCount)
+            if (ease == null) {
+                Log.w("Notifications", "button $button is not valid for a card with ${localState.buttonCount} buttons")
+                return
+            }
             anki.reviewCard(localState.noteID, localState.cardOrd, localState.cardStartTime, ease)
         }
 

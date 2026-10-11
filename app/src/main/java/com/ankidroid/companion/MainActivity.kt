@@ -1,10 +1,7 @@
 package com.ankidroid.companion
 
 import android.Manifest
-import android.app.NotificationChannel
-import android.app.NotificationManager
 import android.content.ActivityNotFoundException
-import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
@@ -56,7 +53,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        createNotificationChannel()
+        Notifications.createChannel(this)
         requestMissingPermissions()
 
         val actions = MainScreenActions(
@@ -86,19 +83,6 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         // Due counts and the current card change while reviewing from the notification.
         refresh()
-    }
-
-    private fun createNotificationChannel() {
-        val name = "AnkiNotificationChannel"
-        val descriptionText = "Channel for anki notifications"
-        val importance = NotificationManager.IMPORTANCE_DEFAULT
-        val channel = NotificationChannel("channel_id", name, importance).apply {
-            description = descriptionText
-        }
-
-        val notificationManager: NotificationManager =
-            getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        notificationManager.createNotificationChannel(channel)
     }
 
     private fun requestMissingPermissions() {

@@ -1,6 +1,7 @@
 package com.ankidroid.companion
 
 import android.app.KeyguardManager
+import android.app.WallpaperColors
 import android.app.WallpaperManager
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -16,6 +17,7 @@ import android.text.StaticLayout
 import android.text.TextPaint
 import android.util.Log
 import android.view.SurfaceHolder
+import androidx.annotation.RequiresApi
 import androidx.core.content.ContextCompat
 
 /**
@@ -31,10 +33,13 @@ class CardWallpaperService : WallpaperService() {
 
     inner class CardEngine : Engine() {
         private var showCard = false
+        private var receiverRegistered = false
+        /** Identifies this engine in the logs: the system can run a preview engine next to the real one. */
+        private val engineId get() = "${Integer.toHexString(System.identityHashCode(this))}${if (isPreview) " (preview)" else ""}"
 
         private val screenReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
-                Log.i(TAG, "screen event: ${intent?.action}")
+                Log.i(TAG, "engine $engineId: screen event ${intent?.action}")
                 when (intent?.action) {
                     // The screen turning off means the device is about to be locked:
                     // prepare the card now so it is already there when the screen turns on.
@@ -59,20 +64,29 @@ class CardWallpaperService : WallpaperService() {
         override fun onCreate(surfaceHolder: SurfaceHolder) {
             super.onCreate(surfaceHolder)
             showCard = isLocked()
-            val filter = IntentFilter().apply {
-                addAction(Intent.ACTION_SCREEN_OFF)
-                addAction(Intent.ACTION_SCREEN_ON)
-                addAction(Intent.ACTION_USER_PRESENT)
+            // Previews (wallpaper picker) always show the card and don't need to follow lock/unlock events;
+            // listening there too made every event handled twice.
+            if (!isPreview) {
+                val filter = IntentFilter().apply {
+                    addAction(Intent.ACTION_SCREEN_OFF)
+                    addAction(Intent.ACTION_SCREEN_ON)
+                    addAction(Intent.ACTION_USER_PRESENT)
+                }
+                ContextCompat.registerReceiver(
+                    this@CardWallpaperService, screenReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED
+                )
+                receiverRegistered = true
             }
-            ContextCompat.registerReceiver(
-                this@CardWallpaperService, screenReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED
-            )
             statePrefs.registerOnSharedPreferenceChangeListener(stateListener)
-            Log.i(TAG, "engine created, preview=$isPreview, lockOnly=${isLockScreenOnly()}")
+            Log.i(TAG, "engine $engineId created, lockOnly=${isLockScreenOnly()}")
         }
 
         override fun onDestroy() {
-            unregisterReceiver(screenReceiver)
+            Log.i(TAG, "engine $engineId destroyed")
+            if (receiverRegistered) {
+                unregisterReceiver(screenReceiver)
+                receiverRegistered = false
+            }
             statePrefs.unregisterOnSharedPreferenceChangeListener(stateListener)
             super.onDestroy()
         }
@@ -82,6 +96,11 @@ class CardWallpaperService : WallpaperService() {
                 draw()
             }
         }
+
+        /** Lets the system pick readable colors (e.g. for the clock) on top of our background. */
+        @RequiresApi(Build.VERSION_CODES.O_MR1)
+        override fun onComputeColors(): WallpaperColors =
+            WallpaperColors(Color.valueOf(BACKGROUND_COLOR), null, null)
 
         override fun onSurfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
             super.onSurfaceChanged(holder, format, width, height)

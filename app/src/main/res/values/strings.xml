@@ -39,6 +39,10 @@
     <string name="notification_permission_denied">Notifications are disabled: cards can\'t be reviewed from the notification. Enable them in the app\'s system settings.</string>
     <string name="permission_not_granted">Permission to read AnkiDroid cards was not granted.</string>
 
+    <!-- Notification -->
+    <string name="notification_channel_name">Cards to review</string>
+    <string name="notification_channel_description">The current card, with its answer and the review buttons. Shown on the lock screen.</string>
+
     <!-- Lock screen wallpaper -->
     <string name="wallpaper_name">AnkiDroid Companion card</string>
     <string name="wallpaper_description">Shows the card to review on the lock screen.</string>

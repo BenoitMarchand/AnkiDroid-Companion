@@ -164,6 +164,8 @@ public class AnkiDroidHelper {
         message.put("card_ord", card.cardOrd);
         message.put("start_time", card.cardStartTime);
         message.put("question", card.q);
+        message.put("answer", card.a);
+        message.put("button_count", card.buttonCount);
         JSONObject js = new JSONObject(message);
 
         cardsDb.edit().putString(KEY_CURRENT_STATE, js.toString()).apply();
@@ -187,6 +189,8 @@ public class AnkiDroidHelper {
             state.cardOrd = json.getInt("card_ord");
             state.cardStartTime = json.getLong("start_time");
             state.question = json.optString("question", "");
+            state.answer = json.optString("answer", "");
+            state.buttonCount = json.optInt("button_count", 4);
             return state;
         } catch (JSONException e) {
             // Log.e(TAG, "JSONException " + e);
