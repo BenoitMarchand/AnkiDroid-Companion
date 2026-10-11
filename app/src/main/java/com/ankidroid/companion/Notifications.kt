@@ -18,6 +18,9 @@ class Notifications {
         const val CHANNEL_ID = "lockscreen_review"
         const val NOTIFICATION_ID = 1
         const val ACTION_SHOW_ANSWER = "ACTION_SHOW_ANSWER"
+
+        /** How long "Next card at your next unlock" stays before disappearing. */
+        private const val NEXT_CARD_MESSAGE_TIMEOUT_MS = 5_000L
         private const val LEGACY_CHANNEL_ID = "channel_id"
 
         fun create(): Notifications = Notifications()
@@ -120,6 +123,22 @@ class Notifications {
         if (replace) {
             notificationManager.cancel(NOTIFICATION_ID) // Cancel the current notification before sending a new one
         }
+        notificationManager.notify(NOTIFICATION_ID, notification)
+    }
+
+    /** After this session's review: a short message in place of the card, which disappears by itself. */
+    fun showNextCardMessage(context: Context) {
+        createChannel(context)
+        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setContentTitle(context.getString(R.string.notification_title))
+            .setContentText(context.getString(R.string.next_card_at_next_unlock))
+            .setTimeoutAfter(NEXT_CARD_MESSAGE_TIMEOUT_MS)
+            .setSilent(true)
+            .build()
+        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        notificationManager.cancel(NOTIFICATION_ID)
         notificationManager.notify(NOTIFICATION_ID, notification)
     }
 

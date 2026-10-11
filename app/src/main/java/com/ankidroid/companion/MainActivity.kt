@@ -2,7 +2,6 @@ package com.ankidroid.companion
 
 import android.Manifest
 import android.app.NotificationManager
-import android.app.WallpaperManager
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -46,6 +45,7 @@ class MainActivity : ComponentActivity() {
     private var currentCard by mutableStateOf<CurrentCard>(CurrentCard.NotStarted)
     private var isStarting by mutableStateOf(false)
     private var setupStatus by mutableStateOf(SetupStatus())
+    private var severalInARow by mutableStateOf(false)
 
     private val permissionsLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { results ->
@@ -75,6 +75,10 @@ class MainActivity : ComponentActivity() {
             onOpenWallpaperStyle = { startActivity(Intent(this, WallpaperSettingsActivity::class.java)) },
             onOpenNotificationSettings = ::openNotificationSettings,
             onOpenBatterySettings = ::openBatterySettings,
+            onSetSeveralInARow = {
+                ReviewSettings.setSeveralInARow(this, it)
+                severalInARow = it
+            },
         )
         setContent {
             AnkiNotificationsTheme {
@@ -86,6 +90,7 @@ class MainActivity : ComponentActivity() {
                     isStarting = isStarting,
                     lockOnlyWallpaper = Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE,
                     setup = setupStatus,
+                    severalInARow = severalInARow,
                     actions = actions,
                 )
             }
@@ -117,6 +122,7 @@ class MainActivity : ComponentActivity() {
 
     private fun refresh() {
         setupStatus = readSetupStatus()
+        severalInARow = ReviewSettings.severalInARow(this)
         if (!AnkiDroidHelper.isApiAvailable(this)) {
             screenState = ScreenState.ApiUnavailable
             return
@@ -214,14 +220,7 @@ class MainActivity : ComponentActivity() {
         val notificationsEnabled = NotificationManagerCompat.from(this).areNotificationsEnabled() &&
             channel?.importance != NotificationManager.IMPORTANCE_NONE
 
-        val wallpaperManager = WallpaperManager.getInstance(this)
-        // On Android 14+ the lock screen can have its own live wallpaper; null means it shows the home one.
-        val lockWallpaper = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            wallpaperManager.getWallpaperInfo(WallpaperManager.FLAG_LOCK) ?: wallpaperManager.wallpaperInfo
-        } else {
-            wallpaperManager.wallpaperInfo
-        }
-        val wallpaperActive = lockWallpaper?.serviceName == CardWallpaperService::class.java.name
+        val wallpaperActive = CardWallpaperService.isActive(this)
 
         val powerManager = getSystemService(POWER_SERVICE) as PowerManager
         return SetupStatus(

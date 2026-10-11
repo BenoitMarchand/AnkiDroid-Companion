@@ -44,6 +44,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -110,6 +111,7 @@ class MainScreenActions(
     val onOpenWallpaperStyle: () -> Unit,
     val onOpenNotificationSettings: () -> Unit,
     val onOpenBatterySettings: () -> Unit,
+    val onSetSeveralInARow: (Boolean) -> Unit,
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -122,6 +124,7 @@ fun MainScreen(
     isStarting: Boolean,
     lockOnlyWallpaper: Boolean,
     setup: SetupStatus,
+    severalInARow: Boolean,
     actions: MainScreenActions,
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
@@ -157,7 +160,7 @@ fun MainScreen(
                 buttonLabel = stringResource(R.string.grant_permission),
                 onClick = actions.onGrantPermission,
             )
-            ScreenState.Ready -> ReadyContent(padding, decks, selectedDeckIds, currentCard, lockOnlyWallpaper, setup, actions)
+            ScreenState.Ready -> ReadyContent(padding, decks, selectedDeckIds, currentCard, lockOnlyWallpaper, setup, severalInARow, actions)
         }
     }
 }
@@ -170,6 +173,7 @@ private fun ReadyContent(
     currentCard: CurrentCard,
     lockOnlyWallpaper: Boolean,
     setup: SetupStatus,
+    severalInARow: Boolean,
     actions: MainScreenActions,
 ) {
     var showWallpaperInstructions by rememberSaveable { mutableStateOf(false) }
@@ -201,7 +205,7 @@ private fun ReadyContent(
         if (!setup.isComplete) {
             item(key = "setup") { SetupCard(setup, onSetWallpaper = { showWallpaperInstructions = true }, actions) }
         }
-        item(key = "current") { CurrentCardCard(currentCard) }
+        item(key = "current") { CurrentCardCard(currentCard, onlyWhileLocked = setup.wallpaperActive) }
         item(key = "lock") {
             LockScreenCard(
                 wallpaperActive = setup.wallpaperActive,
@@ -209,6 +213,7 @@ private fun ReadyContent(
                 onCustomize = actions.onOpenWallpaperStyle,
             )
         }
+        item(key = "several") { SeveralInARowCard(severalInARow, actions.onSetSeveralInARow) }
 
         item(key = "order-header") {
             SectionHeader(stringResource(R.string.review_order), stringResource(R.string.review_order_explanation))
@@ -297,7 +302,7 @@ private fun SectionHeader(title: String, subtitle: String?) {
 }
 
 @Composable
-private fun CurrentCardCard(currentCard: CurrentCard) {
+private fun CurrentCardCard(currentCard: CurrentCard, onlyWhileLocked: Boolean) {
     ElevatedCard(
         modifier = Modifier.fillMaxWidth().animateContentSize(),
         colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
@@ -325,6 +330,24 @@ private fun CurrentCardCard(currentCard: CurrentCard) {
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
                         )
+                    }
+                    if (onlyWhileLocked) {
+                        // The notification is only posted while the phone is locked.
+                        Spacer(Modifier.height(12.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Filled.Lock,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+                                modifier = Modifier.size(16.dp),
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                stringResource(R.string.current_card_lock_hint),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+                            )
+                        }
                     }
                 }
                 CurrentCard.NoneDue -> Row(verticalAlignment = Alignment.CenterVertically) {
@@ -423,6 +446,31 @@ private fun WallpaperInstructionsDialog(lockOnlyWallpaper: Boolean, onDismiss: (
             TextButton(onClick = onDismiss) { Text(stringResource(android.R.string.cancel)) }
         },
     )
+}
+
+/** "Review several cards in a row": off by default, one card each time the phone is unlocked. */
+@Composable
+private fun SeveralInARowCard(enabled: Boolean, onChange: (Boolean) -> Unit) {
+    OutlinedCard(Modifier.fillMaxWidth()) {
+        Row(
+            Modifier
+                .clickable { onChange(!enabled) }
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(R.string.several_in_a_row), style = MaterialTheme.typography.titleSmall)
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    stringResource(if (enabled) R.string.several_in_a_row_on else R.string.several_in_a_row_off),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Spacer(Modifier.width(16.dp))
+            Switch(checked = enabled, onCheckedChange = onChange)
+        }
+    }
 }
 
 /** What still needs to be set up; the checklist only shows the items that aren't done. */
