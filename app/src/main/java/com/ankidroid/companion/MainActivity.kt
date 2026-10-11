@@ -157,7 +157,12 @@ class MainActivity : ComponentActivity() {
         if (state.noteID == -1L && state.cardOrd == -1) {
             return CurrentCard.NoneDue
         }
-        return CurrentCard.Showing(CardText.clean(state.question), anki.api.getDeckName(state.deckId) ?: "")
+        val question = CardText.clean(state.question)
+        // A card stored by an older version may have nothing left to show (e.g. a sound-only question).
+        if (question.isEmpty() || CardText.hasSound(state.question)) {
+            return CurrentCard.NotStarted
+        }
+        return CurrentCard.Showing(question, anki.api.getDeckName(state.deckId) ?: "")
     }
 
     private fun toggleDeck(deckId: Long) {

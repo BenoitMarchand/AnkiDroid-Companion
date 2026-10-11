@@ -119,7 +119,8 @@ class CardWallpaperService : WallpaperService() {
             if (state.noteID == -1L && state.cardOrd == -1) {
                 return getString(R.string.all_cards_done)
             }
-            return CardText.clean(state.question)
+            // A card stored by an older version may have nothing left to show (e.g. a sound-only question).
+            return CardText.clean(state.question).ifEmpty { getString(R.string.wallpaper_not_started) }
         }
 
         private fun drawCard(canvas: Canvas, text: String) {

@@ -13,7 +13,7 @@
     <string name="current_card_none">No card in the notification yet. Select your decks, then tap Start reviewing.</string>
     <string name="all_cards_done">Bravo! You\'ve finished all cards in the selected decks.</string>
     <string name="all_cards_done_next">New cards will show up here when it\'s time to study.</string>
-    <string name="wallpaper_not_started">Select your decks in AnkiDroid Companion</string>
+    <string name="wallpaper_not_started">Open AnkiDroid Companion and tap Start reviewing</string>
     <string name="from_deck">From %1$s</string>
     <string name="review_order">Review order</string>
     <string name="review_order_explanation">Cards come from the first deck below that has one to review, then the next one. A deck includes its subdecks. Cards with sound in the question are skipped.</string>
