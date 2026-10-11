@@ -17,16 +17,16 @@ AnkiDroid Companion is a small Android app that lets the user review AnkiDroid f
 - Toolchain: Gradle 9.3, AGP 9.0.1 (built-in Kotlin, so no `kotlin-android` plugin in `app`), Kotlin 2.3.20 with the Compose compiler Gradle plugin, Java/Kotlin bytecode target 17. Runs on JDK 17+ (CI uses 17; JDK 25 bundled with recent Android Studio works). Upgrade versions as a matched set.
 - Windows: `.\gradlew.bat assembleDebug` · Unix: `./gradlew assembleDebug`
 - Full build + lint + unit tests: `./gradlew build`
-- Unit tests: `./gradlew test` · Instrumented tests (device needed): `./gradlew connectedAndroidTest`
+- Unit tests: `./gradlew test` (plain JVM, in `app/src/test`: keep testable logic free of Android classes) · Instrumented tests (device needed): `./gradlew connectedAndroidTest`
 - Install on a connected device: `./gradlew installDebug`, or on Windows `scripts/install.ps1` (finds the SDK and a JDK 17+, detects the device, installs and launches; `-Wait`, `-Serial`, `-Logcat`, `-NoLaunch`). Also available in VS Code as the default build task (Ctrl+Shift+B).
 - APK output: `app/build/outputs/apk/debug/app-debug.apk`
 - `minSdk 26`, `targetSdk 34`, `compileSdk 34`. Anything newer than API 26 must be guarded with `Build.VERSION.SDK_INT` checks.
-- Manual testing needs a real device or emulator with AnkiDroid installed and at least one deck with due cards. There are no meaningful automated tests yet (only the template `Example*Test` files).
+- Manual testing needs a real device or emulator with AnkiDroid installed and at least one deck with due cards.
 
 ## CI / release
 
-- `.github/workflows/develop.yml`: builds and uploads a debug APK on pushes to `develop`.
-- `.github/workflows/release.yml`: on any pushed tag, creates a GitHub release and attaches the **debug** APK.
+- `.github/workflows/develop.yml`: builds (lint + unit tests) and uploads a debug APK on pushes to `develop` and on pull requests to `main`.
+- `.github/workflows/release.yml`: on any pushed tag, creates a GitHub release (GitHub CLI) and attaches the **debug** APK.
 - The release keystore path is git-ignored; never commit keystores or signing credentials.
 
 ## Architecture
@@ -35,13 +35,16 @@ Single module `:app`, package `com.ankidroid.companion`, mixed Java + Kotlin. Th
 
 | File | Role |
 |---|---|
-| `MainActivity.kt` | Creates the notification channel (`"channel_id"`), requests the AnkiDroid and notification permissions, loads decks and due counts off the main thread, and holds the screen state. "Start reviewing" shows the next card and schedules the worker. |
+| `MainActivity.kt` | Creates the notification channel, requests the AnkiDroid and notification permissions, loads decks and due counts off the main thread, and holds the screen state. "Start reviewing" shows the next card and schedules the worker. |
+| `ui/DeckTree.kt` | Builds the deck tree from `Parent::Child` names and the list of visible (unfolded) rows. |
 | `ui/MainScreen.kt` | Compose UI: current card, lock screen wallpaper setup, the "Review order" list (selected decks, reordered with up/down arrows) and the "All decks" tree built from `Parent::Child` names (fold/unfold, checkbox to select). Stateless; actions go through `MainScreenActions`. |
 | `DeckSelection.kt` | The selected decks in priority order (SharedPreferences `com.ankidroid.companion.deck_selection`). |
 | `CardStateController.kt` | Single entry point for "move to the next card": `showNextCard()` finds the next card in the selected decks, stores it and updates the notification. Does ContentProvider I/O, so call it off the main thread. |
 | `AnkiDroidHelper.java` | The only gateway to AnkiDroid: deck lookup and due counts, `queryNextCard(deckIds)` (first displayable due card of the first deck that has one), `queryCurrentScheduledCard(deckId, scanLimit)` (via `FlashCardsContract.ReviewInfo`; `queryNextCard` scans each deck up to its due count, max 500), `reviewCard(noteId, ord, startTime, ease)`, and persistence of the current state in SharedPreferences (`com.ichi2.anki.api.state`, JSON under `CURRENT_STATE`, including the question text). |
+| `DeckScanner.kt` | Pure logic of the deck order: first deck with a displayable card, each deck scanned up to its due count (max 500), decks with nothing due skipped. |
+| `AnswerButtons.kt` | Which answer buttons a card shows and the ease each one sends, from the card's button count (2, 3 or 4). |
 | `CardText.kt` | Turns card HTML into displayed text (strips HTML, sound and `[[type:...]]` tags) and detects sound in a question. |
-| `Notifications.kt` | Builds the single notification (ID `1`) with custom `RemoteViews` (`notification_collapsed`, `notification_expanded_full`, `notification_expanded_empty`). Buttons send `ACTION_BUTTON_1..4` broadcasts. |
+| `Notifications.kt` | Creates the `lockscreen_review` channel (public on the lock screen) and builds the single notification (ID `1`) with custom `RemoteViews` (`notification_collapsed`, `notification_expanded_full`, `notification_expanded_empty`). Buttons send `ACTION_BUTTON_1..4` broadcasts; only the buttons the card has are shown. |
 | `NotificationReceiver.kt` | Handles the button broadcasts on a background thread (`goAsync()`): reviews the stored card with ease 1–4, then `CardStateController.showNextCard()`. |
 | `PeriodicWorker.kt` | WorkManager job (`"WORKER_ANKI"`, every 8 h). When the stored state is the empty card, it looks for a new card and shows it. |
 | `CardWallpaperService.kt` | Live wallpaper for the lock screen: draws the current question and redraws when `CURRENT_STATE` changes. |
@@ -61,7 +64,7 @@ Cards are never skipped in AnkiDroid's scheduler: fetching due cards is read-onl
 ## Conventions & gotchas
 
 - Card content: only `QUESTION_SIMPLE` / `ANSWER_PURE` are used, cleaned by `CardText`. Media is not rendered; cards with sound in the question are skipped (they stay due in AnkiDroid).
-- Ease values follow the Anki scheduler: 1 = Again, 2 = Hard, 3 = Good, 4 = Easy (`AnkiDroidHelper.EASE_1..4`). AnkiDroid's API has **no 5th ease**. `CardInfo.buttonCount` can be < 4 for some cards and isn't honored yet.
+- Ease values depend on the card's button count: with 4 buttons 1 = Again, 2 = Hard, 3 = Good, 4 = Easy; with 3 buttons there is no Hard (Good = 2, Easy = 3). Always go through `AnswerButtons`. AnkiDroid's API has **no 5th ease**.
 - AnkiDroid queries are ContentProvider I/O: keep them off the main thread (coroutines on `Dispatchers.IO` in the activity, `goAsync()` in receivers).
 - PendingIntents must be `FLAG_IMMUTABLE` (targetSdk 31+). Distinct actions currently disambiguate the button intents; keep actions unique or use distinct request codes.
 - Implicit broadcasts (`SCREEN_OFF`, `SCREEN_ON`, `USER_PRESENT`) **cannot** be registered in the manifest on API 26+. They need a runtime-registered receiver inside a long-lived component (for example a foreground service).

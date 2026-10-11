@@ -44,10 +44,6 @@ public class AnkiDroidHelper {
 
     public static final String KEY_CURRENT_STATE = "CURRENT_STATE";
 
-    /** How many due cards to look through for one that can be displayed, when the deck's due count is unknown. */
-    private static final int DEFAULT_SCAN_LIMIT = 50;
-    /** Upper bound of the scan, to keep a huge deck from making the query too slow. */
-    private static final int MAX_SCAN_LIMIT = 500;
 
     private AddContentApi mApi;
     private Context mContext;
@@ -201,7 +197,7 @@ public class AnkiDroidHelper {
 
     @SuppressLint("Range,DirectSystemCurrentTimeMillisUsage")
     public CardInfo queryCurrentScheduledCard(long deckID) {
-        return queryCurrentScheduledCard(deckID, DEFAULT_SCAN_LIMIT);
+        return queryCurrentScheduledCard(deckID, DeckScanner.DEFAULT_SCAN_LIMIT);
     }
 
     /**
@@ -313,25 +309,21 @@ public class AnkiDroidHelper {
      */
     public CardInfo queryNextCard(List<Long> deckIds) {
         Map<Long, int[]> counts = getDeckCounts();
-        for (long deckId : deckIds) {
-            int scanLimit = DEFAULT_SCAN_LIMIT;
-            int[] deckCounts = counts.get(deckId);
-            if (deckCounts != null) {
-                int due = deckCounts[0] + deckCounts[1] + deckCounts[2];
-                if (due == 0) {
-                    Log.i("Notifications", "deck " + deckId + ": nothing due, moving to the next deck");
-                    continue;
-                }
-                scanLimit = Math.min(due, MAX_SCAN_LIMIT);
-            }
-            CardInfo card = queryCurrentScheduledCard(deckId, scanLimit);
-            if (card != null) {
-                card.deckId = deckId;
-                return card;
-            }
-            Log.i("Notifications", "deck " + deckId + ": all " + scanLimit + " due cards skipped, moving to the next deck");
-        }
-        return null;
+        return DeckScanner.findNextCard(
+                deckIds,
+                deckId -> {
+                    int[] deckCounts = counts.get(deckId);
+                    return deckCounts == null ? null : deckCounts[0] + deckCounts[1] + deckCounts[2];
+                },
+                (deckId, scanLimit) -> {
+                    CardInfo card = queryCurrentScheduledCard(deckId, scanLimit);
+                    if (card != null) {
+                        card.deckId = deckId;
+                    } else {
+                        Log.i("Notifications", "deck " + deckId + ": no displayable card among " + scanLimit + " due cards");
+                    }
+                    return card;
+                });
     }
 
     /**

@@ -7,16 +7,20 @@ object CardText {
     private val SOUND = Regex("""\[sound:[^\]]*]|\[anki:play:[^\]]*]""")
     private val TYPE_ANSWER = Regex("""\[\[type:[^\]]*]]""")
     private val EXTRA_BLANK_LINES = Regex("\n{3,}")
-    private const val OBJECT_REPLACEMENT = '￼'
+    private const val OBJECT_REPLACEMENT = '\uFFFC'
 
     /** Whether the HTML plays a sound. Cards whose question has sound are skipped for now. */
     @JvmStatic
     fun hasSound(html: String?): Boolean = html != null && SOUND.containsMatchIn(html)
 
+    /** Removes the sound and typed-answer tags, which have no text to show. */
+    @JvmStatic
+    fun stripMediaTags(html: String): String = html.replace(SOUND, "").replace(TYPE_ANSWER, "")
+
     @JvmStatic
     fun clean(html: String?): String {
         if (html.isNullOrEmpty()) return ""
-        val withoutTags = html.replace(SOUND, "").replace(TYPE_ANSWER, "")
+        val withoutTags = stripMediaTags(html)
         return HtmlCompat.fromHtml(withoutTags, HtmlCompat.FROM_HTML_MODE_LEGACY).toString()
             .replace(OBJECT_REPLACEMENT, ' ') // images
             .replace(EXTRA_BLANK_LINES, "\n\n")
