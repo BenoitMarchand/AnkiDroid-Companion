@@ -19,6 +19,7 @@
     <string name="review_order_explanation">Cards come from the first deck below that has one to review, then the next one. A deck includes its subdecks. Cards with sound in the question are skipped.</string>
     <string name="review_order_empty">Tick decks in the list below to review them.</string>
     <string name="all_decks">All decks</string>
+    <string name="included_with_parent">Included with %1$s</string>
     <string name="remove_deck">Remove from review order</string>
     <string name="expand">Expand</string>
     <string name="collapse">Collapse</string>

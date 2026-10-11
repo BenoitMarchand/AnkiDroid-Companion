@@ -57,6 +57,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
@@ -185,6 +186,7 @@ private fun ReadyContent(
     // Full names of the unfolded decks. Everything starts folded, like AnkiDroid's deck list.
     var expanded by rememberSaveable { mutableStateOf(emptySet<String>()) }
     val visibleNodes = flattenVisible(tree, expanded)
+    val selectedNames = selectedDecks.map { it.name }.toSet()
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -251,6 +253,7 @@ private fun ReadyContent(
                                 node = node,
                                 isExpanded = node.fullName in expanded,
                                 position = if (deckId == null) -1 else selectedDeckIds.indexOf(deckId),
+                                includedIn = selectedAncestor(node.fullName, selectedNames),
                                 onToggleExpanded = {
                                     expanded = if (node.fullName in expanded) expanded - node.fullName else expanded + node.fullName
                                 },
@@ -519,17 +522,21 @@ private fun DeckTreeRow(
     node: DeckNode,
     isExpanded: Boolean,
     position: Int,
+    includedIn: String?,
     onToggleExpanded: () -> Unit,
     onToggleSelected: () -> Unit,
 ) {
     val deck = node.deck
     val hasChildren = node.children.isNotEmpty()
+    // Already reviewed through a selected parent. A deck selected on its own stays active so it can be removed.
+    val covered = includedIn != null && position < 0
+    val selectable = deck != null && !covered
     val chevronRotation by animateFloatAsState(if (isExpanded) 90f else 0f, label = "chevron")
 
     Row(
         Modifier
             .fillMaxWidth()
-            .clickable(enabled = deck != null || hasChildren) { if (deck != null) onToggleSelected() else onToggleExpanded() }
+            .clickable(enabled = selectable || hasChildren) { if (selectable) onToggleSelected() else onToggleExpanded() }
             .padding(start = (node.depth.coerceAtMost(MAX_INDENT_LEVELS) * 20).dp, end = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -544,7 +551,7 @@ private fun DeckTreeRow(
         } else {
             Spacer(Modifier.width(48.dp))
         }
-        Column(Modifier.weight(1f).padding(vertical = 10.dp)) {
+        Column(Modifier.weight(1f).padding(vertical = 10.dp).alpha(if (covered) DISABLED_ALPHA else 1f)) {
             Text(
                 node.shortName,
                 style = MaterialTheme.typography.bodyLarge,
@@ -552,13 +559,21 @@ private fun DeckTreeRow(
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
-            if (deck != null) DeckCounts(deck)
+            if (covered) {
+                Text(
+                    stringResource(R.string.included_with_parent, includedIn!!.substringAfterLast("::")),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else if (deck != null) {
+                DeckCounts(deck)
+            }
         }
         if (position >= 0) {
             PositionBadge(position)
         }
         if (deck != null) {
-            Checkbox(checked = position >= 0, onCheckedChange = { onToggleSelected() })
+            Checkbox(checked = position >= 0 || covered, onCheckedChange = { onToggleSelected() }, enabled = !covered)
         }
     }
 }
@@ -571,6 +586,9 @@ private fun PositionBadge(position: Int) {
         }
     }
 }
+
+/** Opacity of a deck already included through its selected parent. */
+private const val DISABLED_ALPHA = 0.45f
 
 /** Deeper levels aren't indented further, so names keep enough room on a phone screen. */
 private const val MAX_INDENT_LEVELS = 4

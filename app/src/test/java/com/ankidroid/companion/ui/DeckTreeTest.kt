@@ -66,6 +66,24 @@ class DeckTreeTest {
     }
 
     @Test
+    fun subdecksOfASelectedDeckAreIncludedInIt() {
+        val selected = setOf("Languages")
+
+        assertEquals("Languages", selectedAncestor("Languages::Spanish", selected))
+        assertEquals("Languages", selectedAncestor("Languages::Spanish::Verbs", selected))
+        assertNull(selectedAncestor("Languages", selected))
+        assertNull(selectedAncestor("Default", selected))
+        assertNull(selectedAncestor("languages::German", selected))
+    }
+
+    @Test
+    fun nearestSelectedAncestorWins() {
+        val selected = setOf("Languages", "Languages::Spanish")
+
+        assertEquals("Languages::Spanish", selectedAncestor("Languages::Spanish::Verbs", selected))
+    }
+
+    @Test
     fun deckItemSplitsNameAndParentPath() {
         assertEquals("Verbs", deck(3, "Languages::Spanish::Verbs").shortName)
         assertEquals("Languages › Spanish", deck(3, "Languages::Spanish::Verbs").parentPath)
