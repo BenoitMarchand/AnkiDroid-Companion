@@ -8,6 +8,11 @@
     <string name="notification_title">Anki</string>
     <string name="notification_title_deck">Anki • %1$s</string>
     <string name="review_close">Close</string>
+    <string name="next_card_at_next_unlock">Next card at your next unlock</string>
+    <string name="current_card_lock_hint">Lock your phone to review it: the card is only shown while the phone is locked.</string>
+    <string name="several_in_a_row">Review several cards in a row</string>
+    <string name="several_in_a_row_off">Off: one card each time you unlock your phone, as a small habit. The next card comes at your next unlock.</string>
+    <string name="several_in_a_row_on">On: after each answer, the next card is shown right away.</string>
     <string name="review_no_card">No card to review. Open AnkiDroid Companion and tap Start reviewing.</string>
     <string name="success">Success</string>
 
@@ -75,7 +80,7 @@
     <string name="setup_notifications">Allow notifications</string>
     <string name="setup_notifications_detail">Needed to review cards from the notification.</string>
     <string name="setup_wallpaper">Show cards on the lock screen</string>
-    <string name="setup_wallpaper_detail">Set the AnkiDroid Companion card as your lock screen wallpaper.</string>
+    <string name="setup_wallpaper_detail">Set the AnkiDroid Companion card as your lock screen wallpaper. It is also needed to show the card only while the phone is locked, one card per unlock; without it, the notification stays visible.</string>
     <string name="setup_battery">Keep checking for new cards</string>
     <string name="setup_battery_detail">Recommended: exclude the app from battery optimization, so new cards show up on time.</string>
     <string name="setup_fix">Fix</string>

@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
 import com.ankidroid.companion.ui.theme.AnkiNotificationsTheme
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -57,6 +58,9 @@ class ReviewActivity : ComponentActivity() {
         data object Loading : ReviewState
         data class Card(val card: CardInfo, val revealed: Boolean, val busy: Boolean = false) : ReviewState
         data object Done : ReviewState
+
+        /** This session's card was answered: the next one comes at the next lock. */
+        data object Waiting : ReviewState
         data object NotStarted : ReviewState
     }
 
@@ -97,6 +101,7 @@ class ReviewActivity : ComponentActivity() {
 
     private fun currentState(): ReviewState {
         val stored = AnkiDroidHelper(applicationContext).storedState ?: return ReviewState.NotStarted
+        if (LockSession.isWaitingForNextLock(applicationContext)) return ReviewState.Waiting
         if (!stored.hasCard()) return ReviewState.Done
         val card = stored.toCardInfo()
         return ReviewState.Card(card, CardReview.isAnswerRevealed(applicationContext, card))
@@ -117,6 +122,11 @@ class ReviewActivity : ComponentActivity() {
             state = withContext(Dispatchers.IO) {
                 CardReview.answer(applicationContext, button)
                 currentState()
+            }
+            if (state == ReviewState.Waiting) {
+                // One card per session: say when the next one comes, then get out of the way.
+                delay(CLOSE_AFTER_REVIEW_MS)
+                finish()
             }
         }
     }
@@ -152,6 +162,7 @@ private fun ReviewScreen(
             when (state) {
                 ReviewActivity.ReviewState.Loading -> Centered { CircularProgressIndicator() }
                 ReviewActivity.ReviewState.Done -> Message(stringResource(R.string.all_cards_done), onClose)
+                ReviewActivity.ReviewState.Waiting -> Message(stringResource(R.string.next_card_at_next_unlock), onClose)
                 ReviewActivity.ReviewState.NotStarted -> Message(stringResource(R.string.review_no_card), onClose)
                 is ReviewActivity.ReviewState.Card -> CardReviewContent(state, onShowAnswer, onAnswer)
             }
@@ -212,6 +223,8 @@ private fun androidx.compose.foundation.layout.ColumnScope.CardReviewContent(
     }
     Spacer(Modifier.height(8.dp))
 }
+
+private const val CLOSE_AFTER_REVIEW_MS = 2_500L
 
 /** Label, background and text color of each answer button: the same soft tones as the notification. */
 private val EASE_STYLES = mapOf(

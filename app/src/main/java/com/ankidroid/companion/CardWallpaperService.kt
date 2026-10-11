@@ -46,6 +46,8 @@ class CardWallpaperService : WallpaperService() {
                 // prepare the card now so it is already there when the screen turns on.
                 Intent.ACTION_SCREEN_OFF -> onLocked()
                 Intent.ACTION_USER_PRESENT -> onUnlocked()
+                // Turned on again before the keyguard locked (lock delay): no USER_PRESENT will come.
+                Intent.ACTION_SCREEN_ON -> if (!isKeyguardLocked()) onUnlocked()
             }
             active.forEach { it.onScreenEvent(action) }
         }
@@ -69,23 +71,29 @@ class CardWallpaperService : WallpaperService() {
     override fun onCreateEngine(): Engine = CardEngine()
 
     private fun onLocked() {
+        if (LockSession.onLocked(this)) {
+            // The notification was removed at the last unlock (or held back): show the current card again.
+            val state = AnkiDroidHelper(this).storedState
+            if (state != null) {
+                Log.i(TAG, "posting the card notification again")
+                Notifications.create().showNotification(this, state.takeIf { it.hasCard() }?.toCardInfo(), state.deckName, true)
+            }
+        }
         // AnkiDroid doesn't report changes: check the displayed card is still the right one (throttled).
         CardStateController.syncOnLock(this)
-        if (!LockSession.onLocked(this)) return
-        // The notification was removed at the last unlock: show the current card again.
-        val state = AnkiDroidHelper(this).storedState ?: return
-        if (!state.hasCard()) return
-        Log.i(TAG, "posting the card notification again")
-        Notifications.create().showNotification(this, state.toCardInfo(), state.deckName, true)
     }
 
     private fun onUnlocked() {
-        val hasCard = AnkiDroidHelper(this).storedState?.hasCard() == true
-        if (LockSession.onUnlocked(this, hasCard)) {
-            Log.i(TAG, "card not answered while locked, removing the notification")
+        val started = AnkiDroidHelper(this).storedState != null
+        if (LockSession.onUnlocked(this, started)) {
+            // The notification is only visible while the phone is locked.
+            Log.i(TAG, "unlocked, removing the notification")
             (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).cancel(Notifications.NOTIFICATION_ID)
         }
     }
+
+    private fun isKeyguardLocked(): Boolean =
+        (getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager).isKeyguardLocked
 
     inner class CardEngine : Engine() {
         private var showCard = false
@@ -115,6 +123,10 @@ class CardWallpaperService : WallpaperService() {
 
         private val styleListener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ -> reloadStyle() }
 
+        private val sessionListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == LockSession.KEY_WAITING) draw()
+        }
+
         private val statePrefs: SharedPreferences
             get() = getSharedPreferences(AnkiDroidHelper.STATE_DB, Context.MODE_PRIVATE)
 
@@ -123,6 +135,7 @@ class CardWallpaperService : WallpaperService() {
             showCard = isLocked()
             engines.add(this)
             statePrefs.registerOnSharedPreferenceChangeListener(stateListener)
+            LockSession.prefs(this@CardWallpaperService).registerOnSharedPreferenceChangeListener(sessionListener)
             WallpaperStyle.prefs(this@CardWallpaperService).registerOnSharedPreferenceChangeListener(styleListener)
             loadStyle()
             Log.i(TAG, "engine $engineId created, lockOnly=${isLockScreenOnly()}")
@@ -132,6 +145,7 @@ class CardWallpaperService : WallpaperService() {
             Log.i(TAG, "engine $engineId destroyed")
             engines.remove(this)
             statePrefs.unregisterOnSharedPreferenceChangeListener(stateListener)
+            LockSession.prefs(this@CardWallpaperService).unregisterOnSharedPreferenceChangeListener(sessionListener)
             WallpaperStyle.prefs(this@CardWallpaperService).unregisterOnSharedPreferenceChangeListener(styleListener)
             super.onDestroy()
         }
@@ -201,6 +215,10 @@ class CardWallpaperService : WallpaperService() {
         private fun currentContent(): CardContent {
             val state = AnkiDroidHelper(this@CardWallpaperService).storedState
                 ?: return CardContent(getString(R.string.wallpaper_not_started))
+            // This session's card was answered: the next one comes at the next lock.
+            if (!isPreview && LockSession.isWaitingForNextLock(this@CardWallpaperService)) {
+                return CardContent(getString(R.string.next_card_at_next_unlock))
+            }
             if (!state.hasCard()) {
                 return CardContent(getString(R.string.all_cards_done))
             }
@@ -212,5 +230,19 @@ class CardWallpaperService : WallpaperService() {
 
     companion object {
         private const val TAG = "CardWallpaper"
+
+        /** Whether the card wallpaper is set on the lock screen (Android 14+: lock only, or on both screens). */
+        @JvmStatic
+        fun isActive(context: Context): Boolean {
+            val wallpaperManager = WallpaperManager.getInstance(context)
+            // On Android 14+ the lock screen can have its own live wallpaper; null means it shows the home one.
+            val lockWallpaper = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                wallpaperManager.getWallpaperInfo(WallpaperManager.FLAG_LOCK) ?: wallpaperManager.wallpaperInfo
+            } else {
+                wallpaperManager.wallpaperInfo
+            }
+            return lockWallpaper?.packageName == context.packageName &&
+                lockWallpaper.serviceName == CardWallpaperService::class.java.name
+        }
     }
 }

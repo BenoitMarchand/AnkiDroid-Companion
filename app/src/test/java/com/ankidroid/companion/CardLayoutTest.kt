@@ -1,7 +1,6 @@
 package com.ankidroid.companion
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -54,12 +53,5 @@ class CardLayoutTest {
 
         assertEquals(250f, CardLayout.centeredTop(area, blockHeight = 100f), 0.01f)
         assertEquals(100f, CardLayout.centeredTop(area, blockHeight = 1000f), 0.01f)
-    }
-
-    @Test
-    fun unusedNotificationIsHiddenOnUnlock() {
-        assertTrue(LockSession.shouldHideOnUnlock(hasCard = true, answered = false))
-        assertFalse(LockSession.shouldHideOnUnlock(hasCard = true, answered = true))
-        assertFalse(LockSession.shouldHideOnUnlock(hasCard = false, answered = false))
     }
 }

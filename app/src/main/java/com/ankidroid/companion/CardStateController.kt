@@ -66,7 +66,7 @@ object CardStateController {
         when (action) {
             CardSync.Action.SHOW_NEXT -> showCard(context, anki, next!!, silent = !(alertOnNewCards && displayed == null))
             CardSync.Action.SHOW_DONE -> showDone(context, anki, deckIds, silent = true)
-            CardSync.Action.REPOST -> Notifications.create().showNotification(context, displayed!!.toCardInfo(), displayed.deckName, true)
+            CardSync.Action.REPOST -> post(context, displayed!!.toCardInfo(), displayed.deckName, silent = true)
             CardSync.Action.NONE -> Unit
         }
         action
@@ -92,7 +92,7 @@ object CardStateController {
     private fun showCard(context: Context, anki: AnkiDroidHelper, card: CardInfo, silent: Boolean) {
         Log.i(TAG, "next card found in deck ${card.deckId}")
         anki.storeState(card.deckId, card)
-        Notifications.create().showNotification(context, card, card.deckName, silent)
+        post(context, card, card.deckName, silent)
     }
 
     private fun showDone(context: Context, anki: AnkiDroidHelper, deckIds: List<Long>, silent: Boolean) {
@@ -101,7 +101,27 @@ object CardStateController {
         emptyCard.cardOrd = -1
         emptyCard.noteID = -1
         anki.storeState(deckIds.firstOrNull() ?: -1L, emptyCard)
-        Notifications.create().showNotification(context, null, "", silent)
+        post(context, null, "", silent)
+    }
+
+    /**
+     * Posts the card (or "Bravo", when [card] is null) notification, unless it must wait for the next lock
+     * (phone unlocked, or this session's card already answered): it is then posted by the next lock.
+     */
+    private fun post(context: Context, card: CardInfo?, deckName: String, silent: Boolean) {
+        if (LockSession.mayPostNow(context)) {
+            Notifications.create().showNotification(context, card, deckName, silent)
+        } else {
+            Log.i(TAG, "notification held back until the next lock")
+            LockSession.markHidden(context)
+            cancelNotification(context)
+        }
+    }
+
+    private fun cancelNotification(context: Context) {
+        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        // Keep the short "next card at your next unlock" message: it times out by itself.
+        if (!LockSession.isWaitingForNextLock(context)) manager.cancel(Notifications.NOTIFICATION_ID)
     }
 
     private fun isNotificationVisible(context: Context): Boolean {
