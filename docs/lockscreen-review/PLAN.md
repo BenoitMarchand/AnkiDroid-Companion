@@ -32,6 +32,7 @@ Limits:
 - [x] **One review per unlock** (#24): the notification is only visible while locked; after the answer, "Next card at your next unlock" for a few seconds; an answer while unlocked counts as the session's review; "Review several cards in a row" is an option, off by default. Without the wallpaper: permanent notification, cards follow each other. *(2026-10-11)*
 - [x] **No "Start reviewing"** (#37): reviewing starts as soon as a deck is selected, and stops when none is. *(2026-10-12)*
 - [x] **Settings menu** (#35): gear icon on the main screen → one Settings screen (behavior, lock screen content, lock screen style). Lock screen content "question and answer": the answer under the question, after a thin divider, slightly smaller; the notification then shows the answer buttons right away (no "Show answer"). *(2026-10-12)*
+- [x] **Change the card at every unlock** (#45): option, off by default. When a lock session ends without an answer (a revealed answer still counts as unanswered) and the card was visible on the lock screen for at least 1.5 s, the next lock shows another due card. The app rotates through the first N displayable due cards of the selected decks in review order, filled from the next decks (N: default 10, 2–50, warning above 20). After an answer, the first card comes back and the next due card joins the set. Skipped cards stay due in AnkiDroid (its API can't skip without a review). Needs the wallpaper (unlock events). *(2026-10-12)*
 
 ## Phase 0: Spike on a real device
 
@@ -56,6 +57,7 @@ Limits:
 - [x] 2.4 Request `POST_NOTIFICATIONS` at runtime on API 33+.
 - [x] 2.5 The expanded notification shows the question and a **Show answer** button first; the answer and the buttons are revealed in place. Pill buttons on a color scale (Again red, Hard orange, Good light green, Easy green), Show answer in the dynamic accent color. (#23)
 - [x] 2.6 One review per lock session, notification only while locked, option to review several in a row. Screen turned on again before the keyguard locked counts as an unlock. (#24)
+- [x] 2.7 Option "Change the card at every unlock", with the rotation size in Settings; the sync keeps a rotated card while it is in the rotation set. (#45)
 
 ## Phase 3: Live wallpaper
 

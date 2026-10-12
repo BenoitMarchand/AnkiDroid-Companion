@@ -193,6 +193,37 @@ class ReviewScenariosTest {
         waitUntil { CardReview.isAnswerRevealed(context, card) }
     }
 
+    @Test
+    fun rotationOnUnlock_goesThroughTheFirstCardsThenBackToTheFirstAfterAnAnswer() {
+        anki.deck(
+            1, "Spanish",
+            FakeAnkiDataSource.Card(10, question = "Hola"),
+            FakeAnkiDataSource.Card(11, question = "Adiós"),
+            FakeAnkiDataSource.Card(12, question = "Gracias"),
+        )
+        select(1)
+        ReviewSettings.setRotationSize(context, 2)
+        start()
+        assertEquals(10L, storedState().noteID)
+
+        // The rotation set is the first 2 due cards: 12 isn't in it.
+        rotate(expected = 11)
+        rotate(expected = 10)
+        rotate(expected = 11)
+
+        // Answering shows the first card again, and the next due card joins the set.
+        press("ACTION_BUTTON_3")
+        waitUntil { anki.answers.isNotEmpty() && storedState().noteID == 10L }
+        assertEquals(listOf(FakeAnkiDataSource.Answer(11, 0, ease = 3)), anki.answers)
+        rotate(expected = 12)
+    }
+
+    /** An unlock without an answer, as decided by the lock session. */
+    private fun rotate(expected: Long) {
+        CardStateController.rotateOnUnlock(context)
+        waitUntil { storedState().noteID == expected }
+    }
+
     private fun select(vararg deckIds: Long) = DeckSelection.save(context, deckIds.toList())
 
     /** Reviewing starts with the deck selection: the app runs the sync once the decks are selected. */

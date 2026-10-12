@@ -12,6 +12,12 @@
     <string name="several_in_a_row">Review several cards in a row</string>
     <string name="several_in_a_row_off">Off: one card each time you unlock your phone, as a small habit. The next card comes at your next unlock.</string>
     <string name="several_in_a_row_on">On: after each answer, the next card is shown right away.</string>
+    <string name="rotate_on_unlock">Change the card at every unlock</string>
+    <string name="rotate_on_unlock_off">Off: an unanswered card stays until you answer it.</string>
+    <string name="rotate_on_unlock_on">On: if you unlock without answering, another due card comes at the next lock. Skipped cards stay due in AnkiDroid; after an answer, the first card comes back.</string>
+    <string name="rotate_on_unlock_needs_wallpaper">Works once the card wallpaper is set on the lock screen.</string>
+    <string name="rotation_size">Rotate through the first %1$d due cards</string>
+    <string name="rotation_size_warning">Above %1$d cards, the most urgent cards come back less often, and checking the card at each lock takes longer.</string>
     <string name="success">Success</string>
 
     <!-- Main screen -->
