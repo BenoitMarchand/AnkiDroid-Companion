@@ -143,7 +143,9 @@ object CardStateController {
     private fun showCard(context: Context, anki: AnkiDroidHelper, card: CardInfo, silent: Boolean) {
         Log.i(TAG, "next card found in deck ${card.deckId}")
         anki.storeState(card.deckId, card)
-        post(context, card, card.deckName, silent)
+        if (post(context, card, card.deckName, silent)) {
+            ReviewTimer.onCardShown(context, CardSync.CardKey(card.noteID, card.cardOrd))
+        }
     }
 
     private fun showDone(context: Context, anki: AnkiDroidHelper, deckIds: List<Long>, silent: Boolean) {
@@ -166,15 +168,18 @@ object CardStateController {
     /**
      * Posts the card (or "Bravo", when [card] is null) notification, unless it must wait for the next lock
      * (phone unlocked, or this session's card already answered): it is then posted by the next lock.
+     *
+     * @return whether the notification was posted
      */
-    private fun post(context: Context, card: CardInfo?, deckName: String, silent: Boolean) {
+    private fun post(context: Context, card: CardInfo?, deckName: String, silent: Boolean): Boolean {
         if (LockSession.mayPostNow(context)) {
             Notifications.create().showNotification(context, card, deckName, silent)
-        } else {
-            Log.i(TAG, "notification held back until the next lock")
-            LockSession.markHidden(context)
-            cancelNotification(context)
+            return true
         }
+        Log.i(TAG, "notification held back until the next lock")
+        LockSession.markHidden(context)
+        cancelNotification(context)
+        return false
     }
 
     private fun cancelNotification(context: Context) {

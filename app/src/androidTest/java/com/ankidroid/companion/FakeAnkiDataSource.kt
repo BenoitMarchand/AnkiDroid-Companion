@@ -11,9 +11,13 @@ class FakeAnkiDataSource : AnkiDataSource {
     private val decks = LinkedHashMap<Long, String>()
     private val dueCards = HashMap<Long, MutableList<Card>>()
     private val _answers = mutableListOf<Answer>()
+    private val _timesTaken = mutableListOf<Long>()
 
     /** The answers received, in order. */
     val answers: List<Answer> get() = synchronized(this) { _answers.toList() }
+
+    /** The time taken sent with each answer, in milliseconds. */
+    val timesTaken: List<Long> get() = synchronized(this) { _timesTaken.toList() }
 
     fun deck(id: Long, name: String, vararg cards: Card) = apply {
         decks[id] = name
@@ -49,6 +53,7 @@ class FakeAnkiDataSource : AnkiDataSource {
 
     override fun reviewCard(noteId: Long, cardOrd: Int, ease: Int, timeTakenMs: Long) = synchronized(this) {
         _answers.add(Answer(noteId, cardOrd, ease))
+        _timesTaken.add(timeTakenMs)
         dueCards.values.forEach { cards -> cards.removeAll { it.noteId == noteId && it.ord == cardOrd } }
     }
 }

@@ -1,6 +1,5 @@
 package com.ankidroid.companion;
 
-import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.os.Handler;
@@ -65,7 +64,6 @@ public class AnkiDroidHelper {
         message.put("deck_id", deckId);
         message.put("note_id", card.noteID);
         message.put("card_ord", card.cardOrd);
-        message.put("start_time", card.cardStartTime);
         message.put("question", card.q);
         message.put("answer", card.a);
         message.put("button_count", card.buttonCount);
@@ -95,7 +93,6 @@ public class AnkiDroidHelper {
             state.deckId = json.getLong("deck_id");
             state.noteID = json.getLong("note_id");
             state.cardOrd = json.getInt("card_ord");
-            state.cardStartTime = json.getLong("start_time");
             state.question = json.optString("question", "");
             state.answer = json.optString("answer", "");
             state.buttonCount = json.optInt("button_count", 4);
@@ -123,7 +120,6 @@ public class AnkiDroidHelper {
     /**
      * The displayable cards among the next {@code scanLimit} due cards of the deck, in AnkiDroid's order.
      */
-    @SuppressLint("DirectSystemCurrentTimeMillisUsage")
     public List<CardInfo> queryDisplayableCards(long deckID, int scanLimit) {
         // This call requires com.ichi2.anki.permission.READ_WRITE_DATABASE to be granted by user as it is
         // marked as "dangerous" by ankidroid app. This permission has been asked before.
@@ -138,7 +134,6 @@ public class AnkiDroidHelper {
         List<CardInfo> displayable = new ArrayList<>();
         for (CardInfo card : cards) {
             if (isDisplayable(card)) {
-                card.cardStartTime = System.currentTimeMillis();
                 displayable.add(card);
             } else {
                 Log.i("Notifications", "skipping card that can't be displayed, noteID: " + card.noteID + ", ord: " + card.cardOrd);
@@ -229,8 +224,8 @@ public class AnkiDroidHelper {
         return DeckScanner.isDue(new CardSync.CardKey(noteId, cardOrd), due, limit -> mSource.dueCardKeys(deckId, limit));
     }
 
-    @SuppressLint("DirectSystemCurrentTimeMillisUsage")
-    public void reviewCard(long noteID, int cardOrd, long cardStartTime, int ease) {
-        mSource.reviewCard(noteID, cardOrd, ease, System.currentTimeMillis() - cardStartTime);
+    /** Records the review in AnkiDroid; {@code timeTakenMs} is how long the card was looked at ({@link ReviewTimer}). */
+    public void reviewCard(long noteID, int cardOrd, int ease, long timeTakenMs) {
+        mSource.reviewCard(noteID, cardOrd, ease, timeTakenMs);
     }
 }
