@@ -62,4 +62,7 @@ Contributions to AnkiDroid Companion are welcome! If you have any ideas, feature
 
 ## License
 
-This project is licensed under the MIT License.
+This project is licensed under the MIT License (see [LICENSE](LICENSE)).
+
+It includes the AnkiDroid API library (`com.github.ankidroid:Anki-Android`), licensed under the
+[GNU LGPL v3](https://github.com/ankidroid/Anki-Android/blob/main/api/COPYING.LESSER).
