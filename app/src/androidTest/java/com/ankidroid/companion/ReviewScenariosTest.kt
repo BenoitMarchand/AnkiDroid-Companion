@@ -177,7 +177,8 @@ class ReviewScenariosTest {
         assertEquals(CardSync.Action.STOP, CardStateController.syncWithAnkiDroid(context))
 
         assertEquals(null, AnkiDroidHelper(context).storedState)
-        assertFalse(notificationManager().activeNotifications.any { it.id == Notifications.NOTIFICATION_ID })
+        // The system removes it asynchronously.
+        waitUntil { notificationManager().activeNotifications.none { it.id == Notifications.NOTIFICATION_ID } }
     }
 
     @Test
