@@ -34,6 +34,7 @@ Limits:
 - [x] **Settings menu** (#35): gear icon on the main screen → one Settings screen (behavior, lock screen content, lock screen style). Lock screen content "question and answer": the answer under the question, after a thin divider, slightly smaller; the notification then shows the answer buttons right away (no "Show answer"). *(2026-10-12)*
 - [x] **Change the card at every unlock** (#45): option, off by default. When a lock session ends without an answer (a revealed answer still counts as unanswered) and the card was visible on the lock screen for at least 1.5 s, the next lock shows another due card. The app rotates through the first N displayable due cards of the selected decks in review order, filled from the next decks (N: default 10, 2–50, warning above 20). After an answer, the first card comes back and the next due card joins the set. Skipped cards stay due in AnkiDroid (its API can't skip without a review). Needs the wallpaper (unlock events). *(2026-10-12)*
 - [x] **Review time** (#47): the time sent to AnkiDroid with an answer (`TIME_TAKEN`) runs from when the card is seen (screen on on the lock screen, or a new card shown while it is) to the answer button; screen off or unlock without an answer clears it. Without the wallpaper it runs from the notification post. No timer for the answered card → 0, not a made-up duration. Previously it ran from when the card was fetched, often hours before (AnkiDroid caps it at the deck's maximum answer seconds). *(2026-10-12)*
+- [x] **Reviews at set times** (#49): an option, off by default, with an editable list of times of day (default 9:00, 13:00, 19:00). At each time a separate, high-importance notification shows "Time for a card" with the deck name and **Start**; Start shows the question and restarts the review timer, then "Show answer" and the answer buttons. Same card as the lock screen notification. A new time replaces an unanswered notification; nothing is sent when no card is due. Inexact alarms (no permission, may be a few minutes late), set again at boot, app update, clock or time zone change, app start and by the hourly worker. *(2026-10-12)*
 
 ## Phase 0: Spike on a real device
 
@@ -60,6 +61,7 @@ Limits:
 - [x] 2.6 One review per lock session, notification only while locked, option to review several in a row. Screen turned on again before the keyguard locked counts as an unlock. (#24)
 - [x] 2.7 Option "Change the card at every unlock", with the rotation size in Settings; the sync keeps a rotated card while it is in the rotation set. (#45)
 - [x] 2.8 Review time measured from when the card is seen to the answer (`ReviewTimer`). (#47)
+- [x] 2.9 Reviews at set times: `ReviewSchedule` (pure), `ScheduledReview` (alarm, notification ID 2, channel `scheduled_review`), times editable in Settings. An answer from it while unlocked doesn't show "Next card at your next unlock" on the hidden lock screen notification. (#49)
 
 ## Phase 3: Live wallpaper
 

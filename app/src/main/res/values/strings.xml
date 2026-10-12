@@ -96,6 +96,19 @@
     <!-- Notification -->
     <string name="notification_channel_name">Cards to review</string>
     <string name="notification_channel_description">The current card, with its answer and the review buttons. Shown on the lock screen.</string>
+    <string name="scheduled_channel_name">Reviews at set times</string>
+    <string name="scheduled_channel_description">A card to review at the times chosen in the app\'s settings.</string>
+    <string name="scheduled_review_prompt">Time for a card</string>
+    <string name="start">Start</string>
+
+    <!-- Scheduled reviews (settings) -->
+    <string name="scheduled_review_settings">Reviews at set times</string>
+    <string name="scheduled_review">Notify me at set times</string>
+    <string name="scheduled_review_off">Off: cards only come on the lock screen.</string>
+    <string name="scheduled_review_on">On: at each time below, a notification offers the current card. Tap Start to see the question. It may come a few minutes late.</string>
+    <string name="scheduled_review_no_time">Add a time to get a notification.</string>
+    <string name="scheduled_review_add_time">Add a time</string>
+    <string name="scheduled_review_remove_time">Remove this time</string>
 
     <!-- Lock screen wallpaper -->
     <string name="wallpaper_name">AnkiDroid Companion card</string>

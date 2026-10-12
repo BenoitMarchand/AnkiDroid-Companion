@@ -35,6 +35,11 @@ object ReviewTimer {
         if (load(context)?.card != card) start(context, card, now)
     }
 
+    /** The user explicitly starts reviewing [card] (Start in a scheduled review): the timer starts over now. */
+    fun restart(context: Context, card: CardSync.CardKey, now: Long = System.currentTimeMillis()) {
+        start(context, card, now)
+    }
+
     /** A new card was shown in place of the previous one. */
     fun onCardShown(context: Context, card: CardSync.CardKey, now: Long = System.currentTimeMillis()) {
         if (startsOnCardShown(CardWallpaperService.isActive(context), running = load(context) != null)) {

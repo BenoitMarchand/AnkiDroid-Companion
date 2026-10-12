@@ -17,6 +17,9 @@ class Notifications {
         /** Shown in full on the lock screen, so a card can be answered without unlocking. */
         const val CHANNEL_ID = "lockscreen_review"
         const val NOTIFICATION_ID = 1
+
+        /** The scheduled reviews ([ScheduledReview]). */
+        const val SCHEDULED_CHANNEL_ID = "scheduled_review"
         const val ACTION_SHOW_ANSWER = "ACTION_SHOW_ANSWER"
 
         /** How long "Next card at your next unlock" stays before disappearing. */
@@ -39,6 +42,20 @@ class Notifications {
             notificationManager.createNotificationChannel(channel)
             // The lock screen visibility of an existing channel can't be changed: replace the old channel.
             notificationManager.deleteNotificationChannel(LEGACY_CHANNEL_ID)
+        }
+
+        /** The channel of the scheduled reviews: high importance, so it pops up at the chosen times. */
+        fun createScheduledChannel(context: Context) {
+            val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            val channel = NotificationChannel(
+                SCHEDULED_CHANNEL_ID,
+                context.getString(R.string.scheduled_channel_name),
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = context.getString(R.string.scheduled_channel_description)
+                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+            }
+            notificationManager.createNotificationChannel(channel)
         }
     }
 
@@ -69,14 +86,7 @@ class Notifications {
             expandedView.setViewVisibility(R.id.buttonShowAnswer, if (revealed) View.GONE else View.VISIBLE)
             expandedView.setOnClickPendingIntent(R.id.buttonShowAnswer, createIntent(context, ACTION_SHOW_ANSWER))
 
-            expandedView.setOnClickPendingIntent(R.id.button1, createIntent(context,"ACTION_BUTTON_1"))
-            expandedView.setOnClickPendingIntent(R.id.button2, createIntent(context,"ACTION_BUTTON_2"))
-            expandedView.setOnClickPendingIntent(R.id.button3, createIntent(context,"ACTION_BUTTON_3"))
-            expandedView.setOnClickPendingIntent(R.id.button4, createIntent(context,"ACTION_BUTTON_4"))
-            val visibleButtons = AnswerButtons.visibleButtons(card.buttonCount)
-            listOf(R.id.button1, R.id.button2, R.id.button3, R.id.button4).forEachIndexed { index, buttonId ->
-                expandedView.setViewVisibility(buttonId, if (index + 1 in visibleButtons) View.VISIBLE else View.GONE)
-            }
+            setAnswerButtons(context, expandedView, card, "ACTION_BUTTON_")
 
             builder = NotificationCompat.Builder(context, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_notification)
@@ -156,6 +166,58 @@ class Notifications {
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         // No cancel first: the notification is updated in place and stays expanded.
         notificationManager.notify(NOTIFICATION_ID, notification)
+    }
+
+    /**
+     * The scheduled review notification ([ScheduledReview]), separate from the lock screen one. Before Start:
+     * "Time for a card" and a Start action, which also shows in the pop-up. After Start: the question and
+     * "Show answer", then the answer and the answer buttons once [revealed].
+     *
+     * @param alert whether to alert (a scheduled time); otherwise it is updated in place, silently
+     */
+    fun showScheduledReview(context: Context, card: CardInfo, deckName: String, started: Boolean, revealed: Boolean, alert: Boolean) {
+        createScheduledChannel(context)
+        val title = context.getString(R.string.notification_title_deck, deckName)
+        val prompt = context.getString(R.string.scheduled_review_prompt)
+        val collapsedView = RemoteViews(context.packageName, R.layout.notification_collapsed)
+        collapsedView.setTextViewText(R.id.textViewCollapsedHeader, if (started) CardText.clean(card.q) else prompt)
+        collapsedView.setTextViewText(R.id.textViewCollapsedTitle, title)
+
+        val builder = NotificationCompat.Builder(context, SCHEDULED_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setStyle(NotificationCompat.DecoratedCustomViewStyle())
+            .setCustomContentView(collapsedView)
+            .setContentTitle(title)
+            .setCategory(NotificationCompat.CATEGORY_REMINDER)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setSilent(!alert)
+            .setOnlyAlertOnce(!alert)
+        if (started) {
+            val expandedView = cardView(context, card)
+            expandedView.setViewVisibility(R.id.answerGroup, if (revealed) View.VISIBLE else View.GONE)
+            expandedView.setViewVisibility(R.id.buttonShowAnswer, if (revealed) View.GONE else View.VISIBLE)
+            expandedView.setOnClickPendingIntent(R.id.buttonShowAnswer, createIntent(context, ScheduledReview.ACTION_SHOW_ANSWER))
+            setAnswerButtons(context, expandedView, card, ScheduledReview.ACTION_BUTTON_PREFIX)
+            builder.setCustomBigContentView(expandedView)
+        } else {
+            // A standard action, unlike the buttons of the custom view, is also shown in the pop-up.
+            builder.addAction(0, context.getString(R.string.start), createIntent(context, ScheduledReview.ACTION_START))
+        }
+
+        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        // A new scheduled time replaces an unanswered notification, and alerts again.
+        if (alert) notificationManager.cancel(ScheduledReview.NOTIFICATION_ID)
+        notificationManager.notify(ScheduledReview.NOTIFICATION_ID, builder.build())
+    }
+
+    /** Shows [card]'s answer buttons, each sending [actionPrefix] followed by its number. */
+    private fun setAnswerButtons(context: Context, view: RemoteViews, card: CardInfo, actionPrefix: String) {
+        val visibleButtons = AnswerButtons.visibleButtons(card.buttonCount)
+        listOf(R.id.button1, R.id.button2, R.id.button3, R.id.button4).forEachIndexed { index, buttonId ->
+            view.setOnClickPendingIntent(buttonId, createIntent(context, actionPrefix + (index + 1)))
+            view.setViewVisibility(buttonId, if (index + 1 in visibleButtons) View.VISIBLE else View.GONE)
+        }
     }
 
     /** The expanded view with [card]'s question and answer; the caller chooses what is visible. */

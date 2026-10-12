@@ -1,6 +1,8 @@
 package com.ankidroid.companion
 
+import android.app.TimePickerDialog
 import android.graphics.Bitmap
+import android.text.format.DateFormat
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -33,6 +35,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
@@ -47,6 +50,7 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -70,6 +74,8 @@ import com.ankidroid.companion.ui.theme.AnkiNotificationsTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.time.LocalTime
+import java.time.format.DateTimeFormatter
 import kotlin.math.roundToInt
 
 /**
@@ -180,6 +186,9 @@ private fun SettingsScreen(onBack: () -> Unit) {
                     RotationSize()
                 }
             }
+
+            GroupHeader(stringResource(R.string.scheduled_review_settings))
+            ScheduledReviewSection()
 
             GroupHeader(stringResource(R.string.wallpaper_content))
             Column {
@@ -373,6 +382,77 @@ private fun RotationSize() {
             )
         }
     }
+}
+
+/**
+ * "Review at set times": the switch, then the times of day. Tapping a time changes it, the cross removes it.
+ * Each change sets the next alarm again.
+ */
+@Composable
+private fun ScheduledReviewSection() {
+    val context = LocalContext.current
+    var enabled by remember { mutableStateOf(ScheduledReviewSettings.isEnabled(context)) }
+    var times by remember { mutableStateOf(ScheduledReviewSettings.times(context)) }
+
+    fun saveTimes(newTimes: List<Int>) {
+        times = newTimes
+        ScheduledReviewSettings.setTimes(context, newTimes)
+        ScheduledReview.schedule(context)
+    }
+
+    /** Opens the time picker at [initial]; the chosen time replaces [old], or is added. */
+    fun pickTime(initial: Int, old: Int?) {
+        TimePickerDialog(
+            context,
+            { _, hour, minute -> saveTimes(ReviewSchedule.put(times, hour * 60 + minute, old)) },
+            initial / 60,
+            initial % 60,
+            DateFormat.is24HourFormat(context),
+        ).show()
+    }
+
+    Column {
+        SwitchRow(
+            title = stringResource(R.string.scheduled_review),
+            summary = stringResource(if (enabled) R.string.scheduled_review_on else R.string.scheduled_review_off),
+            checked = enabled,
+            onChange = {
+                ScheduledReviewSettings.setEnabled(context, it)
+                enabled = it
+                ScheduledReview.schedule(context)
+            },
+        )
+        if (enabled) {
+            Spacer(Modifier.height(8.dp))
+            if (times.isEmpty()) {
+                Text(
+                    stringResource(R.string.scheduled_review_no_time),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+            times.forEach { time ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(onClick = { pickTime(time, old = time) }) {
+                        Text(formatTime(context, time), style = MaterialTheme.typography.titleMedium)
+                    }
+                    Spacer(Modifier.weight(1f))
+                    IconButton(onClick = { saveTimes(times - time) }) {
+                        Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.scheduled_review_remove_time))
+                    }
+                }
+            }
+            OutlinedButton(onClick = { pickTime(times.lastOrNull()?.plus(60)?.rem(ReviewSchedule.MINUTES_PER_DAY) ?: 12 * 60, old = null) }) {
+                Text(stringResource(R.string.scheduled_review_add_time))
+            }
+        }
+    }
+}
+
+/** [minutes] since midnight, in the phone's 12 or 24 hour format. */
+private fun formatTime(context: android.content.Context, minutes: Int): String {
+    val pattern = if (DateFormat.is24HourFormat(context)) "HH:mm" else "h:mm a"
+    return LocalTime.of(minutes / 60, minutes % 60).format(DateTimeFormatter.ofPattern(pattern))
 }
 
 /** Starts a group of settings. */

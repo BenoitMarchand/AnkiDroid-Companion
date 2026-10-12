@@ -143,6 +143,7 @@ object CardStateController {
     private fun showCard(context: Context, anki: AnkiDroidHelper, card: CardInfo, silent: Boolean) {
         Log.i(TAG, "next card found in deck ${card.deckId}")
         anki.storeState(card.deckId, card)
+        ScheduledReview.onCardShown(context, card)
         if (post(context, card, card.deckName, silent)) {
             ReviewTimer.onCardShown(context, CardSync.CardKey(card.noteID, card.cardOrd))
         }
@@ -154,6 +155,7 @@ object CardStateController {
         emptyCard.cardOrd = -1
         emptyCard.noteID = -1
         anki.storeState(deckIds.firstOrNull() ?: -1L, emptyCard)
+        ScheduledReview.cancel(context)
         post(context, null, "", silent)
     }
 
@@ -161,6 +163,7 @@ object CardStateController {
     private fun stop(context: Context, anki: AnkiDroidHelper) {
         Log.i(TAG, "no deck selected, stopping")
         anki.clearState()
+        ScheduledReview.cancel(context)
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         manager.cancel(Notifications.NOTIFICATION_ID)
     }

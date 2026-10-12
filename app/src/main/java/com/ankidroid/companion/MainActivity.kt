@@ -62,6 +62,8 @@ class MainActivity : ComponentActivity() {
             // Reviewing is started: make sure the periodic check uses the current interval.
             PeriodicWorker.schedule(applicationContext)
         }
+        // Alarms are lost when the app is force-stopped: set the next scheduled review again.
+        ScheduledReview.schedule(applicationContext)
         requestMissingPermissions()
 
         val actions = MainScreenActions(
