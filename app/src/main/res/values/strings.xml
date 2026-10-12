@@ -48,8 +48,14 @@
     <string name="permission_not_granted">Permission to read AnkiDroid cards was not granted.</string>
 
     <!-- Wallpaper settings -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_behavior">Behavior</string>
+    <string name="wallpaper_content">Lock screen content</string>
+    <string name="wallpaper_content_question">Question</string>
+    <string name="wallpaper_content_question_answer">Question and answer</string>
+    <string name="wallpaper_content_question_summary">The lock screen shows the question. Tap Show answer in the notification to see the answer.</string>
+    <string name="wallpaper_content_question_answer_summary">The lock screen shows the answer under the question, and the notification shows the answer buttons right away.</string>
     <string name="wallpaper_settings_title">Lock screen style</string>
-    <string name="customize_wallpaper">Customize</string>
     <string name="back">Back</string>
     <string name="wallpaper_background">Background</string>
     <string name="wallpaper_choose_image">Choose an image</string>
@@ -70,6 +76,7 @@
     <string name="text_size_large">Large</string>
     <string name="wallpaper_preview_question">¿Dónde está la biblioteca?</string>
     <string name="wallpaper_preview_deck">Example deck</string>
+    <string name="wallpaper_preview_answer">Where is the library?</string>
 
     <!-- Setup checklist -->
     <string name="setup_title">Finish setting up</string>

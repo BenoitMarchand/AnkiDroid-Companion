@@ -17,7 +17,7 @@ AnkiDroid Companion is an extension app for the AnkiDroid flashcard app. It lets
 
 - **Lock screen style**: choose a background color or image, the text color and the text size, with a live preview. On a picture, choose how it is filtered so the text stays readable (darken, blur, gradient behind the text, text panel or none) and how strongly.
 
-- **One card per unlock**: with the lock screen wallpaper set, the card notification is only visible while the phone is locked: it is removed at every unlock and comes back at the next lock. After you answer, "Next card at your next unlock" is shown for a few seconds: one card each time you unlock, as a small habit. Turn on **Review several cards in a row** on the main screen to get the next card right away instead. Without the wallpaper, the notification stays visible and cards follow each other.
+- **One card per unlock**: with the lock screen wallpaper set, the card notification is only visible while the phone is locked: it is removed at every unlock and comes back at the next lock. After you answer, "Next card at your next unlock" is shown for a few seconds: one card each time you unlock, as a small habit. Turn on **Review several cards in a row** in **Settings** (gear icon) to get the next card right away instead. Without the wallpaper, the notification stays visible and cards follow each other.
 
 - **Seamless integration**: the app doesn't store your decks, cards or reviews. Everything happens in your AnkiDroid app, through its official API.
 
@@ -32,7 +32,7 @@ AnkiDroid Companion is an extension app for the AnkiDroid flashcard app. It lets
 
 4. **Choose your decks**: tick decks in **All decks**, then order them under **Review order** with the arrows. Reviewing starts as soon as a deck is ticked: the first card shows up in a notification. Untick every deck to stop.
 
-5. **Optional, lock screen**: tap **Set lock screen wallpaper** and follow the instructions to choose the AnkiDroid Companion card for the **lock screen only** (on Android 8 to 13, live wallpapers apply to both screens). Tap **Customize** to change its look.
+5. **Optional, lock screen**: tap **Set lock screen wallpaper** and follow the instructions to choose the AnkiDroid Companion card for the **lock screen only** (on Android 8 to 13, live wallpapers apply to both screens). In **Settings** (gear icon), choose whether the lock screen shows the question only or the question and the answer (the notification then shows the answer buttons right away), and change its look.
 
 6. **When you're done**: when no selected deck has a card left, you'll see "Bravo! You've finished all cards in the selected decks." A new notification comes when it's time to study again.
 

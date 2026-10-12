@@ -27,9 +27,9 @@
             </intent-filter>
         </activity>
         <activity
-            android:name=".WallpaperSettingsActivity"
+            android:name=".SettingsActivity"
             android:exported="true"
-            android:label="@string/wallpaper_settings_title"
+            android:label="@string/settings_title"
             android:theme="@style/Theme.AnkiNotifications" />
         <receiver android:name=".NotificationReceiver"/>
         <receiver

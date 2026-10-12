@@ -30,6 +30,8 @@ Limits:
 - [x] **Parent decks**: a parent deck gives cards from all its subdecks, mixed by AnkiDroid's scheduler, exactly like studying it in AnkiDroid. No per-subdeck ordering. *(2026-10-11)*
 - [x] **Notification timeout** (#6): no timeout while locked; the notification disappears when the phone is unlocked (#24). *(2026-10-11)*
 - [x] **One review per unlock** (#24): the notification is only visible while locked; after the answer, "Next card at your next unlock" for a few seconds; an answer while unlocked counts as the session's review; "Review several cards in a row" is an option, off by default. Without the wallpaper: permanent notification, cards follow each other. *(2026-10-11)*
+- [x] **No "Start reviewing"** (#37): reviewing starts as soon as a deck is selected, and stops when none is. *(2026-10-12)*
+- [x] **Settings menu** (#35): gear icon on the main screen → one Settings screen (behavior, lock screen content, lock screen style). Lock screen content "question and answer": the answer under the question, after a thin divider, slightly smaller; the notification then shows the answer buttons right away (no "Show answer"). *(2026-10-12)*
 
 ## Phase 0: Spike on a real device
 

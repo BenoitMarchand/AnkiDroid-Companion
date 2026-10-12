@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -38,11 +39,9 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -105,10 +104,9 @@ class MainScreenActions(
     val onGrantPermission: () -> Unit,
     val onRetry: () -> Unit,
     val onOpenWallpaperSettings: () -> Unit,
-    val onOpenWallpaperStyle: () -> Unit,
+    val onOpenSettings: () -> Unit,
     val onOpenNotificationSettings: () -> Unit,
     val onOpenBatterySettings: () -> Unit,
-    val onSetSeveralInARow: (Boolean) -> Unit,
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -120,7 +118,6 @@ fun MainScreen(
     currentCard: CurrentCard,
     lockOnlyWallpaper: Boolean,
     setup: SetupStatus,
-    severalInARow: Boolean,
     actions: MainScreenActions,
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
@@ -129,6 +126,11 @@ fun MainScreen(
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.app_name), fontWeight = FontWeight.SemiBold) },
+                actions = {
+                    IconButton(onClick = actions.onOpenSettings) {
+                        Icon(Icons.Filled.Settings, contentDescription = stringResource(R.string.settings_title))
+                    }
+                },
                 scrollBehavior = scrollBehavior,
             )
         },
@@ -151,7 +153,7 @@ fun MainScreen(
                 buttonLabel = stringResource(R.string.grant_permission),
                 onClick = actions.onGrantPermission,
             )
-            ScreenState.Ready -> ReadyContent(padding, decks, selectedDeckIds, currentCard, lockOnlyWallpaper, setup, severalInARow, actions)
+            ScreenState.Ready -> ReadyContent(padding, decks, selectedDeckIds, currentCard, lockOnlyWallpaper, setup, actions)
         }
     }
 }
@@ -164,7 +166,6 @@ private fun ReadyContent(
     currentCard: CurrentCard,
     lockOnlyWallpaper: Boolean,
     setup: SetupStatus,
-    severalInARow: Boolean,
     actions: MainScreenActions,
 ) {
     var showWallpaperInstructions by rememberSaveable { mutableStateOf(false) }
@@ -198,13 +199,8 @@ private fun ReadyContent(
         }
         item(key = "current") { CurrentCardCard(currentCard, onlyWhileLocked = setup.wallpaperActive) }
         item(key = "lock") {
-            LockScreenCard(
-                wallpaperActive = setup.wallpaperActive,
-                onSetWallpaper = { showWallpaperInstructions = true },
-                onCustomize = actions.onOpenWallpaperStyle,
-            )
+            LockScreenCard(wallpaperActive = setup.wallpaperActive, onSetWallpaper = { showWallpaperInstructions = true })
         }
-        item(key = "several") { SeveralInARowCard(severalInARow, actions.onSetSeveralInARow) }
 
         item(key = "order-header") {
             SectionHeader(stringResource(R.string.review_order), stringResource(R.string.review_order_explanation))
@@ -374,7 +370,7 @@ private fun CurrentCardCard(currentCard: CurrentCard, onlyWhileLocked: Boolean) 
 }
 
 @Composable
-private fun LockScreenCard(wallpaperActive: Boolean, onSetWallpaper: () -> Unit, onCustomize: () -> Unit) {
+private fun LockScreenCard(wallpaperActive: Boolean, onSetWallpaper: () -> Unit) {
     OutlinedCard(Modifier.fillMaxWidth()) {
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Surface(shape = CircleShape, color = MaterialTheme.colorScheme.secondaryContainer, modifier = Modifier.size(40.dp)) {
@@ -398,17 +394,12 @@ private fun LockScreenCard(wallpaperActive: Boolean, onSetWallpaper: () -> Unit,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Row(
-            Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp).fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            if (!wallpaperActive) {
-                FilledTonalButton(onClick = onSetWallpaper, modifier = Modifier.weight(1f)) {
-                    Text(stringResource(R.string.set_lock_wallpaper), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
-            }
-            OutlinedButton(onClick = onCustomize, modifier = if (wallpaperActive) Modifier.fillMaxWidth() else Modifier) {
-                Text(stringResource(R.string.customize_wallpaper))
+        if (!wallpaperActive) {
+            FilledTonalButton(
+                onClick = onSetWallpaper,
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp).fillMaxWidth(),
+            ) {
+                Text(stringResource(R.string.set_lock_wallpaper), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
     }
@@ -437,31 +428,6 @@ private fun WallpaperInstructionsDialog(lockOnlyWallpaper: Boolean, onDismiss: (
             TextButton(onClick = onDismiss) { Text(stringResource(android.R.string.cancel)) }
         },
     )
-}
-
-/** "Review several cards in a row": off by default, one card each time the phone is unlocked. */
-@Composable
-private fun SeveralInARowCard(enabled: Boolean, onChange: (Boolean) -> Unit) {
-    OutlinedCard(Modifier.fillMaxWidth()) {
-        Row(
-            Modifier
-                .clickable { onChange(!enabled) }
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(Modifier.weight(1f)) {
-                Text(stringResource(R.string.several_in_a_row), style = MaterialTheme.typography.titleSmall)
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    stringResource(if (enabled) R.string.several_in_a_row_on else R.string.several_in_a_row_off),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            Spacer(Modifier.width(16.dp))
-            Switch(checked = enabled, onCheckedChange = onChange)
-        }
-    }
 }
 
 /** What still needs to be set up; the checklist only shows the items that aren't done. */
