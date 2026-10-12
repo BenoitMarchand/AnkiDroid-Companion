@@ -11,8 +11,8 @@ android {
         applicationId = "com.ankidroid.companion"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 16
+        versionName = "0.2.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -60,6 +60,6 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
     implementation("com.github.ankidroid:Anki-Android:v2.17alpha8")
-    implementation("androidx.work:work-runtime:2.7.0")
+    implementation("androidx.work:work-runtime:2.9.0")
 
 }

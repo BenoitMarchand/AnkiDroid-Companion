@@ -4,45 +4,32 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.util.Log
+import kotlin.concurrent.thread
 
+/** Handles the notification buttons: "Show answer" and the answer buttons. */
 class NotificationReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context?, intent: Intent?) {
-        Log.i("Notifications", "onReceive called")
+        Log.i("Notifications", "onReceive called: ${intent?.action}")
         if (context == null)
             return
-        Log.i("Notifications", "onReceive called - context is not null")
-        when (intent?.action) {
-            "ACTION_BUTTON_1" -> respondCard(context, AnkiDroidHelper.EASE_1)
-            "ACTION_BUTTON_2" -> respondCard(context, AnkiDroidHelper.EASE_2)
-            "ACTION_BUTTON_3" -> respondCard(context, AnkiDroidHelper.EASE_3)
-            "ACTION_BUTTON_4" -> respondCard(context, AnkiDroidHelper.EASE_4)
-        }
-    }
-
-    private fun respondCard(context: Context, ease: Int) {
-        Log.i("Notifications", "respondCard called")
-        var mAnkiDroid = AnkiDroidHelper(context)
-        val localState = mAnkiDroid.storedState
-
-        if (localState != null) {
-            Log.i("Notifications", "localState.cardOrd: ${localState.cardOrd}, localState.noteID: ${localState.noteID}")
-            mAnkiDroid.reviewCard(localState.noteID, localState.cardOrd, localState.cardStartTime, ease)
+        val task: (Context) -> Unit = when (intent?.action) {
+            Notifications.ACTION_SHOW_ANSWER -> CardReview::revealAnswer
+            "ACTION_BUTTON_1" -> { c -> CardReview.answer(c, AnswerButtons.AGAIN) }
+            "ACTION_BUTTON_2" -> { c -> CardReview.answer(c, AnswerButtons.HARD) }
+            "ACTION_BUTTON_3" -> { c -> CardReview.answer(c, AnswerButtons.GOOD) }
+            "ACTION_BUTTON_4" -> { c -> CardReview.answer(c, AnswerButtons.EASY) }
+            else -> return
         }
 
-        // Move to next card
-        val nextCard = mAnkiDroid.queryCurrentScheduledCard(localState.deckId)
-        if (nextCard != null) {
-            Log.i("Notifications", "moving to next card.")
-            mAnkiDroid.storeState(localState.deckId, nextCard)
-            Notifications.create().showNotification(context, nextCard, mAnkiDroid.currentDeckName, true)
-        } else {
-            Log.i("Notifications", "no other cards found, showing done notification")
-            // No more cards to show.
-            val emptyCard = CardInfo()
-            emptyCard.cardOrd = -1
-            emptyCard.noteID = -1
-            mAnkiDroid.storeState(localState.deckId, emptyCard)
-            Notifications.create().showNotification(context, null, "", true)
+        // Looking through several decks can take a while: don't block the main thread.
+        val pendingResult = goAsync()
+        val appContext = context.applicationContext
+        thread {
+            try {
+                task(appContext)
+            } finally {
+                pendingResult.finish()
+            }
         }
     }
 }

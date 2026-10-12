@@ -1,0 +1,37 @@
+name: Integration version
+
+# Each pull request merged into develop (the integration branch) increases the 3rd digit of the version.
+on:
+  pull_request:
+    types: [closed]
+    branches: [ "develop" ]
+
+permissions:
+  contents: write
+
+# Two merges in a row must not bump from the same version.
+concurrency:
+  group: version-bump
+  cancel-in-progress: false
+
+jobs:
+  bump:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: develop
+
+    - name: Increase the patch version
+      id: version
+      run: python3 scripts/version.py patch
+
+    # Pushes made with GITHUB_TOKEN don't start other workflows, so this doesn't loop.
+    - name: Commit the new version
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        git commit -am "Version ${{ steps.version.outputs.version }} (#${{ github.event.pull_request.number }})"
+        git push origin develop

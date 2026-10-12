@@ -1,169 +1,235 @@
 package com.ankidroid.companion
 
-import android.app.NotificationChannel
+import android.Manifest
 import android.app.NotificationManager
-import android.content.Context
+import android.content.ActivityNotFoundException
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
-import android.util.Log
-import android.view.View
-import android.widget.ArrayAdapter
-import android.widget.Button
-import android.widget.Spinner
-import android.widget.TextView
+import android.os.PowerManager
+import android.provider.Settings
+import android.widget.Toast
 import androidx.activity.ComponentActivity
-import androidx.work.ExistingPeriodicWorkPolicy
-import androidx.work.PeriodicWorkRequest
-import androidx.work.WorkManager
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
+import com.ankidroid.companion.ui.CurrentCard
+import com.ankidroid.companion.ui.DeckItem
+import com.ankidroid.companion.ui.MainScreen
+import com.ankidroid.companion.ui.MainScreenActions
+import com.ankidroid.companion.ui.ScreenState
+import com.ankidroid.companion.ui.SetupStatus
+import com.ankidroid.companion.ui.theme.AnkiNotificationsTheme
 import com.ichi2.anki.api.AddContentApi
-import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
+private const val ACTION_WALLPAPER_SETTINGS = "android.settings.WALLPAPER_SETTINGS"
+private const val DECK_CHANGE_DEBOUNCE_MS = 800L
 
 class MainActivity : ComponentActivity() {
-    private lateinit var mAnkiDroid:AnkiDroidHelper
+    private var screenState by mutableStateOf<ScreenState>(ScreenState.Loading)
+    private val decks = mutableStateListOf<DeckItem>()
+    private val selectedDeckIds = mutableStateListOf<Long>()
+    private var currentCard by mutableStateOf<CurrentCard>(CurrentCard.NotStarted)
+    private var setupStatus by mutableStateOf(SetupStatus())
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setContentView(R.layout.main_layout)
-        createNotificationChannel()
-        setup()
-    }
-
-    private fun createNotificationChannel() {
-        val name = "AnkiNotificationChannel"
-        val descriptionText = "Channel for anki notifications"
-        val importance = NotificationManager.IMPORTANCE_DEFAULT
-        val channel = NotificationChannel("channel_id", name, importance).apply {
-            description = descriptionText
+    private val permissionsLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { results ->
+            if (results[Manifest.permission.POST_NOTIFICATIONS] == false) {
+                Toast.makeText(this, R.string.notification_permission_denied, Toast.LENGTH_LONG).show()
+            }
+            refresh()
         }
 
-        val notificationManager: NotificationManager =
-            getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        notificationManager.createNotificationChannel(channel)
+    override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
+        super.onCreate(savedInstanceState)
+        Notifications.createChannel(this)
+        if (DeckSelection.load(this).isNotEmpty()) {
+            // Reviewing is started: make sure the periodic check uses the current interval.
+            PeriodicWorker.schedule(applicationContext)
+        }
+        requestMissingPermissions()
+
+        val actions = MainScreenActions(
+            onToggleDeck = ::toggleDeck,
+            onMoveDeck = ::moveDeck,
+            onGrantPermission = ::requestMissingPermissions,
+            onRetry = ::refresh,
+            onOpenWallpaperSettings = ::openWallpaperSettings,
+            onOpenSettings = { startActivity(Intent(this, SettingsActivity::class.java)) },
+            onOpenNotificationSettings = ::openNotificationSettings,
+            onOpenBatterySettings = ::openBatterySettings,
+        )
+        setContent {
+            AnkiNotificationsTheme {
+                MainScreen(
+                    state = screenState,
+                    decks = decks,
+                    selectedDeckIds = selectedDeckIds,
+                    currentCard = currentCard,
+                    lockOnlyWallpaper = Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE,
+                    setup = setupStatus,
+                    actions = actions,
+                )
+            }
+        }
     }
 
-    private fun startPeriodicWorker() {
-        Log.i("BackgroundService", "startBackgroundService called from MainActivity")
-        val periodicWorkRequest = PeriodicWorkRequest.Builder(
-            PeriodicWorker::class.java,
-            8, TimeUnit.HOURS
-        ).build()
-        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
-            "WORKER_ANKI",
-            ExistingPeriodicWorkPolicy.REPLACE,  // Use REPLACE to ensure only one instance is scheduled
-            periodicWorkRequest
+    override fun onResume() {
+        super.onResume()
+        // Due counts and the current card change while reviewing from the notification.
+        refresh()
+    }
+
+    private fun requestMissingPermissions() {
+        val missing = buildList {
+            if (AnkiDroidHelper.isApiAvailable(this@MainActivity) && !AnkiDroidHelper(this@MainActivity).isPermissionGranted) {
+                add(AddContentApi.READ_WRITE_PERMISSION)
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !isGranted(Manifest.permission.POST_NOTIFICATIONS)) {
+                add(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+        if (missing.isNotEmpty()) {
+            permissionsLauncher.launch(missing.toTypedArray())
+        }
+    }
+
+    private fun isGranted(permission: String) =
+        ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
+
+    private fun refresh() {
+        setupStatus = readSetupStatus()
+        if (!AnkiDroidHelper.isApiAvailable(this)) {
+            screenState = ScreenState.ApiUnavailable
+            return
+        }
+        if (!AnkiDroidHelper(this).isPermissionGranted) {
+            screenState = ScreenState.PermissionMissing
+            return
+        }
+        lifecycleScope.launch {
+            val loaded = withContext(Dispatchers.IO) {
+                // The card may have been reviewed or changed in AnkiDroid since it was shown.
+                CardStateController.syncWithAnkiDroid(applicationContext)
+                loadDecks()
+            }
+            decks.clear()
+            decks.addAll(loaded.decks)
+            selectedDeckIds.clear()
+            selectedDeckIds.addAll(loaded.selectedDeckIds)
+            currentCard = loaded.currentCard
+            screenState = ScreenState.Ready
+        }
+    }
+
+    private class LoadedData(val decks: List<DeckItem>, val selectedDeckIds: List<Long>, val currentCard: CurrentCard)
+
+    private fun loadDecks(): LoadedData {
+        val anki = AnkiDroidHelper(this)
+        val names = anki.deckNames ?: emptyMap()
+        val counts = anki.getDeckCounts()
+        val decks = names.map { (id, name) ->
+            val count = counts[id]
+            DeckItem(id, name, newCount = count?.get(2), learnCount = count?.get(0), reviewCount = count?.get(1))
+        }.sortedBy { it.name.lowercase() }
+        val selected = DeckSelection.load(this).filter { it in names }
+        return LoadedData(decks, selected, readCurrentCard(anki))
+    }
+
+    private fun readCurrentCard(anki: AnkiDroidHelper): CurrentCard {
+        val state = anki.storedState ?: return CurrentCard.NotStarted
+        if (!state.hasCard()) {
+            return CurrentCard.NoneDue
+        }
+        val question = CardText.clean(state.question)
+        // A card stored by an older version may have nothing left to show (e.g. a sound-only question).
+        if (question.isEmpty() || CardText.hasSound(state.question)) {
+            return CurrentCard.NotStarted
+        }
+        return CurrentCard.Showing(question, anki.getDeckName(state.deckId) ?: "")
+    }
+
+    private fun toggleDeck(deckId: Long) {
+        if (!selectedDeckIds.remove(deckId)) {
+            selectedDeckIds.add(deckId)
+        }
+        onDeckSelectionChanged()
+    }
+
+    private fun moveDeck(deckId: Long, offset: Int) {
+        val from = selectedDeckIds.indexOf(deckId)
+        val to = from + offset
+        if (from == -1 || to !in selectedDeckIds.indices) return
+        selectedDeckIds.add(to, selectedDeckIds.removeAt(from))
+        onDeckSelectionChanged()
+    }
+
+    private var deckChangeSync: Job? = null
+
+    /**
+     * Saves the selection and, once the user stops changing it, shows the new first card if it differs. Reviewing
+     * starts with the first selected deck, and stops when none is left.
+     */
+    private fun onDeckSelectionChanged() {
+        DeckSelection.save(this, selectedDeckIds.toList())
+        if (selectedDeckIds.isNotEmpty()) PeriodicWorker.schedule(applicationContext)
+        deckChangeSync?.cancel()
+        deckChangeSync = lifecycleScope.launch {
+            delay(DECK_CHANGE_DEBOUNCE_MS)
+            val action = withContext(Dispatchers.IO) { CardStateController.syncWithAnkiDroid(applicationContext) }
+            if (action != CardSync.Action.NONE) refresh()
+        }
+    }
+
+    private fun readSetupStatus(): SetupStatus {
+        val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+        val channel = notificationManager.getNotificationChannel(Notifications.CHANNEL_ID)
+        val notificationsEnabled = NotificationManagerCompat.from(this).areNotificationsEnabled() &&
+            channel?.importance != NotificationManager.IMPORTANCE_NONE
+
+        val wallpaperActive = CardWallpaperService.isActive(this)
+
+        val powerManager = getSystemService(POWER_SERVICE) as PowerManager
+        return SetupStatus(
+            notificationsEnabled = notificationsEnabled,
+            wallpaperActive = wallpaperActive,
+            batteryUnrestricted = powerManager.isIgnoringBatteryOptimizations(packageName),
         )
     }
 
-    private fun setup() {
-        // Api is not available, either AnkiDroid is not installed or API is disabled.
-        if (!AnkiDroidHelper.isApiAvailable(this)) {
-            explainError("API is not available!\n" +
-                    "This means either AnkiDroid is not installed or API is disabled from the AnkiDroid app")
-        } else {
-            mAnkiDroid = AnkiDroidHelper(this)
-            if (mAnkiDroid.shouldRequestPermission()) {
-                explainError("AnkiDroid Read Write permission is not granted, please make sure that it is given!")
-                // requestPermissionLauncher.launch(AddContentApi.READ_WRITE_PERMISSION)
-                mAnkiDroid.requestPermission(this, 0)
-            } else {
-                startApp()
-            }
-        }
+    private fun openNotificationSettings() {
+        startActivity(
+            Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+        )
     }
 
-    private fun startApp() {
-        val text = findViewById<TextView>(R.id.mainTextView)
-        text.text = "Select a deck:"
-        text.visibility = View.VISIBLE
-
-        setDecksSpinner()
-
-        val button = findViewById<Button>(R.id.mainRefreshButton)
-        button.visibility = View.VISIBLE
-        button.setOnClickListener{
-            onClickRefresh()
-        }
+    private fun openBatterySettings() {
+        // The list of apps and their battery optimization; asking directly needs a permission Play restricts.
+        startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
     }
 
-    private fun explainError(errorText:String) {
-        val text = findViewById<TextView>(R.id.mainTextView)
-        text.text = errorText
-        text.visibility = View.VISIBLE
-        findViewById<Spinner>(R.id.spinner1).visibility = View.GONE
-        findViewById<Button>(R.id.mainRefreshButton).visibility = View.GONE
-    }
-
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<String>,
-        grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-
-        for ((index, _) in permissions.withIndex()) {
-            val permission = permissions[index]
-            val grantResult = grantResults[index]
-            if (permission == AddContentApi.READ_WRITE_PERMISSION) {
-                if (grantResult == PackageManager.PERMISSION_GRANTED) {
-                    startApp()
-                } else {
-                    explainError("AnkiDroid Read Write permission is not granted, please make sure that it is given!")
-                }
-            }
+    private fun openWallpaperSettings() {
+        // Only the system wallpaper app can apply a live wallpaper to the lock screen alone, so the user picks it
+        // there. ACTION_CHANGE_LIVE_WALLPAPER would apply it to both screens.
+        try {
+            // Public action, but its constant is hidden from the SDK. Opens "Wallpaper & style" on Pixel.
+            startActivity(Intent(ACTION_WALLPAPER_SETTINGS))
+        } catch (e: ActivityNotFoundException) {
+            startActivity(Intent.createChooser(Intent(Intent.ACTION_SET_WALLPAPER), getString(R.string.set_lock_wallpaper)))
         }
-    }
-
-    private fun setDecksSpinner() {
-        val items = mutableListOf<String>()
-        var startIndex = 0
-        var lastDeckId:Long = -1
-        val deckList = mAnkiDroid.api.deckList
-
-        val localState = mAnkiDroid.storedState
-        if (localState != null) {
-            lastDeckId = localState.deckId
-        }
-
-        var count = 0
-        if (deckList != null) {
-            for (item in deckList) {
-                items.add(item.value)
-                if (item.key == lastDeckId) {
-                    startIndex = count
-                }
-                count++
-            }
-        }
-
-        val dropdown = findViewById<Spinner>(R.id.spinner1)
-        dropdown.visibility = View.VISIBLE
-        val adapter: ArrayAdapter<String> =
-            ArrayAdapter<String>(this, android.R.layout.simple_spinner_dropdown_item, items)
-        dropdown.adapter = adapter
-        dropdown.setSelection(startIndex)
-    }
-
-    private fun onClickRefresh() {
-        val decksDropdown = findViewById<Spinner>(R.id.spinner1)
-        val deckName = decksDropdown.selectedItem.toString()
-        val deckID = mAnkiDroid.findDeckIdByName(deckName)
-        mAnkiDroid.storeDeckReference(deckName, deckID)
-
-        val card = mAnkiDroid.queryCurrentScheduledCard(deckID)
-        if (card != null) {
-            mAnkiDroid.storeState(deckID, card)
-            Notifications.create().showNotification(this, card, deckName, false)
-        } else {
-            // No cards to show.
-            val emptyCard = CardInfo()
-            emptyCard.cardOrd = -1
-            emptyCard.noteID = -1
-            mAnkiDroid.storeState(deckID, emptyCard)
-            Notifications.create().showNotification(this, null, "", false)
-        }
-
-        // Start the periodic worker when the first card is assigned.
-        startPeriodicWorker()
     }
 }

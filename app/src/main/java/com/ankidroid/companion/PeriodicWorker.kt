@@ -1,55 +1,39 @@
 package com.ankidroid.companion
 
 import android.content.Context
-import android.os.Handler
-import android.os.Looper
 import android.util.Log
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.PeriodicWorkRequest
+import androidx.work.WorkManager
 import androidx.work.Worker
 import androidx.work.WorkerParameters
+import java.util.concurrent.TimeUnit
 
+/**
+ * Hourly check that the displayed card is still in sync with AnkiDroid: catches new cards after "Bravo", and
+ * cards reviewed in AnkiDroid while the phone stays unlocked.
+ */
 class PeriodicWorker(context: Context, params: WorkerParameters) : Worker(context, params) {
-    private val mainThreadHandler = Handler(Looper.getMainLooper())
 
     override fun doWork(): Result {
-        Log.i("BackgroundService", "Periodic worker RAN - QQ")
-        mainThreadHandler.post {
-            // Update UI or perform any operation on the main thread
-            Log.i("BackgroundService", "Periodic worker RAN - QA")
-            checkNotifications()
+        Log.i("BackgroundService", "Periodic worker RAN")
+        if (DeckSelection.load(applicationContext).isEmpty() && AnkiDroidHelper(applicationContext).storedState == null) {
+            Log.i("BackgroundService", "Periodic worker - no deck selected")
+            return Result.success()
         }
+        CardStateController.syncWithAnkiDroid(applicationContext, alertOnNewCards = true)
         return Result.success()
     }
 
-    private fun checkNotifications() {
-        Log.i("BackgroundService", "Periodic worker RAN - QB")
-        var mAnkiDroid = AnkiDroidHelper(applicationContext)
-        Log.i("BackgroundService", "Periodic worker RAN - 1")
-        val localState = mAnkiDroid.storedState
-        Log.i("BackgroundService", "Periodic worker RAN - 2")
+    companion object {
+        private const val WORK_NAME = "WORKER_ANKI"
+        private const val INTERVAL_HOURS = 1L
 
-        if (localState == null) {
-            Log.i("BackgroundService", "Periodic worker - Local state is null")
-            return
-        }
-
-        Log.i("BackgroundService", "Periodic worker - localState.noteID: ${localState.noteID}, localState.cardOrd: ${localState.cardOrd}")
-        // This is not an empty card, don't do anything.
-        if (localState.cardOrd != -1 || localState.noteID != (-1).toLong()) {
-            return
-        }
-
-        Log.i("BackgroundService", "LocalState card was empty, trying to get a new card")
-        // No card found on local state found, try to get the next scheduled card.
-        val nextCard = mAnkiDroid.queryCurrentScheduledCard(localState.deckId)
-        if (nextCard != null) {
-            Log.i("BackgroundService", "next card is not null, trying to send a notification.")
-            // a scheduled card is found, show it.
-            mAnkiDroid.storeState(localState.deckId, nextCard)
-            Notifications.create().showNotification(applicationContext, nextCard, mAnkiDroid.currentDeckName, false)
-        }
-        else
-        {
-            Log.i("BackgroundService", "next card is NULL")
+        /** Schedules the hourly check, or updates an existing schedule (it used to be every 8 hours). */
+        fun schedule(context: Context) {
+            Log.i("BackgroundService", "scheduling the periodic worker")
+            val request = PeriodicWorkRequest.Builder(PeriodicWorker::class.java, INTERVAL_HOURS, TimeUnit.HOURS).build()
+            WorkManager.getInstance(context).enqueueUniquePeriodicWork(WORK_NAME, ExistingPeriodicWorkPolicy.UPDATE, request)
         }
     }
 }
