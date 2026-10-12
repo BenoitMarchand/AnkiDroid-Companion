@@ -47,7 +47,10 @@ class CardWallpaperService : WallpaperService() {
                 Intent.ACTION_SCREEN_OFF -> onLocked()
                 Intent.ACTION_USER_PRESENT -> onUnlocked()
                 // Turned on again before the keyguard locked (lock delay): no USER_PRESENT will come.
-                Intent.ACTION_SCREEN_ON -> if (!isKeyguardLocked()) onUnlocked()
+                // Otherwise it's the lock screen: SCREEN_OFF may not have been delivered. Android 14+ holds the
+                // screen broadcasts back while the process is cached and keeps only the most recent one, so a
+                // SCREEN_ON can replace it. The session must still start (onLocked() does nothing the second time).
+                Intent.ACTION_SCREEN_ON -> if (isKeyguardLocked()) onLocked() else onUnlocked()
             }
             active.forEach { it.onScreenEvent(action) }
         }
@@ -152,6 +155,13 @@ class CardWallpaperService : WallpaperService() {
 
         override fun onVisibilityChanged(visible: Boolean) {
             if (visible) {
+                // Shown on the lock screen: the session starts, even if the screen broadcasts were held back.
+                // Unlike them, the visibility comes straight from the system.
+                if (!isPreview && isLocked()) {
+                    Log.i(TAG, "engine $engineId visible on the lock screen")
+                    showCard = true
+                    onLocked()
+                }
                 draw()
             }
         }
