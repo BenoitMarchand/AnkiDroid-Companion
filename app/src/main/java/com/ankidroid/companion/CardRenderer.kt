@@ -14,8 +14,11 @@ import android.text.StaticLayout
 import android.text.TextPaint
 import androidx.core.graphics.ColorUtils
 
-/** What the lock screen shows: the question, and an optional smaller line under it (the deck name). */
-data class CardContent(val text: String, val subtitle: String? = null)
+/**
+ * What the lock screen shows: the question, an optional smaller line under it (the deck name), and the answer,
+ * drawn under the question when the style shows it ([WallpaperStyle.showAnswer]).
+ */
+data class CardContent(val text: String, val subtitle: String? = null, val answer: String? = null)
 
 /** Draws the lock screen card. Used by the live wallpaper and by the preview in the wallpaper settings. */
 class CardRenderer(private val density: Float) {
@@ -23,6 +26,7 @@ class CardRenderer(private val density: Float) {
     private val bitmapPaint = Paint(Paint.FILTER_BITMAP_FLAG)
     private val scrimPaint = Paint()
     private val panelPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val dividerPaint = Paint(Paint.ANTI_ALIAS_FLAG)
 
     /** What [cachedBackground] was computed from: the filter is applied once, not on every redraw. */
     private data class BackgroundKey(
@@ -137,17 +141,33 @@ class CardRenderer(private val density: Float) {
         val subtitle = content.subtitle?.takeIf { it.isNotEmpty() }?.let { layout(it, subtitlePaint, textWidth, maxLines = 1) }
         val subtitleHeight = subtitle?.let { it.height + SUBTITLE_GAP_DP * density } ?: 0f
 
-        val textSize = CardLayout.fitTextSize(area.height - subtitleHeight, density, style.textSize.scale) { size ->
+        val answerText = content.answer?.takeIf { style.showAnswer && it.isNotEmpty() }
+        val answerPaint = TextPaint(questionPaint).apply { typeface = Typeface.create("sans-serif", Typeface.NORMAL) }
+        // The divider between the question and the answer, with a gap above and below it.
+        val dividerHeight = if (answerText != null) 2 * DIVIDER_GAP_DP * density else 0f
+        val available = area.height - subtitleHeight - dividerHeight
+
+        val textSize = CardLayout.fitTextSize(available, density, style.textSize.scale) { size ->
             questionPaint.textSize = size
-            layout(content.text, questionPaint, textWidth).height.toFloat()
+            answerPaint.textSize = size * CardLayout.ANSWER_SCALE
+            layout(content.text, questionPaint, textWidth).height +
+                (answerText?.let { layout(it, answerPaint, textWidth).height } ?: 0).toFloat()
         }
         questionPaint.textSize = textSize
-        val maxLines = ((area.height - subtitleHeight) / questionPaint.fontSpacing).toInt().coerceAtLeast(1)
-        val question = layout(content.text, questionPaint, textWidth, maxLines)
+        answerPaint.textSize = textSize * CardLayout.ANSWER_SCALE
+        // Even at the minimum size the text may not fit: share the height, and cut each text to its share.
+        val (questionShare, answerShare) = CardLayout.shareHeight(
+            available,
+            layout(content.text, questionPaint, textWidth).height.toFloat(),
+            answerText?.let { layout(it, answerPaint, textWidth).height.toFloat() } ?: 0f,
+        )
+        val question = layout(content.text, questionPaint, textWidth, maxLines(questionShare, questionPaint))
+        val answer = answerText?.let { layout(it, answerPaint, textWidth, maxLines(answerShare, answerPaint)) }
+        val blockHeight = question.height + (answer?.let { dividerHeight + it.height } ?: 0f) + subtitleHeight
 
-        val top = CardLayout.centeredTop(area, question.height + subtitleHeight)
+        val top = CardLayout.centeredTop(area, blockHeight)
+        val textBlockWidth = maxOf(question.maxLineWidth(), answer?.maxLineWidth() ?: 0f, subtitle?.maxLineWidth() ?: 0f)
         if (onImage && style.filter == PictureFilter.PANEL) {
-            val textBlockWidth = maxOf(question.maxLineWidth(), subtitle?.maxLineWidth() ?: 0f)
             val padding = PANEL_PADDING_DP * density
             val centerX = area.left + textWidth / 2f
             panelPaint.color = ColorUtils.setAlphaComponent(
@@ -156,19 +176,33 @@ class CardRenderer(private val density: Float) {
             val radius = PANEL_RADIUS_DP * density
             canvas.drawRoundRect(
                 centerX - textBlockWidth / 2 - padding, top - padding,
-                centerX + textBlockWidth / 2 + padding, top + question.height + subtitleHeight + padding,
+                centerX + textBlockWidth / 2 + padding, top + blockHeight + padding,
                 radius, radius, panelPaint,
             )
         }
         canvas.save()
         canvas.translate(area.left, top)
         question.draw(canvas)
+        canvas.translate(0f, question.height.toFloat())
+        if (answer != null) {
+            val dividerY = DIVIDER_GAP_DP * density
+            val halfWidth = minOf(DIVIDER_WIDTH_DP * density, textBlockWidth) / 2
+            dividerPaint.color = ColorUtils.setAlphaComponent(style.textColor, 120)
+            dividerPaint.strokeWidth = density
+            canvas.drawLine(textWidth / 2f - halfWidth, dividerY, textWidth / 2f + halfWidth, dividerY, dividerPaint)
+            canvas.translate(0f, dividerHeight)
+            answer.draw(canvas)
+            canvas.translate(0f, answer.height.toFloat())
+        }
         if (subtitle != null) {
-            canvas.translate(0f, question.height + SUBTITLE_GAP_DP * density)
+            canvas.translate(0f, SUBTITLE_GAP_DP * density)
             subtitle.draw(canvas)
         }
         canvas.restore()
     }
+
+    /** How many lines of [paint]'s text fit in [height] (at least one). */
+    private fun maxLines(height: Float, paint: TextPaint) = (height / paint.fontSpacing).toInt().coerceAtLeast(1)
 
     private fun layout(text: String, paint: TextPaint, width: Int, maxLines: Int = Int.MAX_VALUE): StaticLayout =
         StaticLayout.Builder.obtain(text, 0, text.length, paint, width)
@@ -185,6 +219,8 @@ class CardRenderer(private val density: Float) {
         private const val PANEL_RADIUS_DP = 24f
         private const val SUBTITLE_SIZE_DP = 16f
         private const val SUBTITLE_GAP_DP = 16f
+        private const val DIVIDER_GAP_DP = 14f
+        private const val DIVIDER_WIDTH_DP = 96f
         private const val LINE_SPACING = 1.1f
 
         fun isLight(color: Int) = ColorUtils.calculateLuminance(color) > 0.5

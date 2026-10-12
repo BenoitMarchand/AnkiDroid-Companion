@@ -45,6 +45,7 @@ import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -70,14 +71,17 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/** Lets the user choose how the lock screen card looks. Also opened from the system wallpaper picker. */
-class WallpaperSettingsActivity : ComponentActivity() {
+/**
+ * The app's settings: reviewing behavior, what the lock screen wallpaper shows, and how it looks. Opened from the
+ * main screen and from the system wallpaper picker.
+ */
+class SettingsActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         setContent {
             AnkiNotificationsTheme {
-                WallpaperSettingsScreen(onBack = ::finish)
+                SettingsScreen(onBack = ::finish)
             }
         }
     }
@@ -91,9 +95,10 @@ private val TEXT_COLORS = listOf(0xFFFFFFFF.toInt(), 0xFF000000.toInt(), 0xFFFFE
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun WallpaperSettingsScreen(onBack: () -> Unit) {
+private fun SettingsScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    var severalInARow by remember { mutableStateOf(ReviewSettings.severalInARow(context)) }
     var style by remember { mutableStateOf(WallpaperStyle.load(context)) }
     var background by remember { mutableStateOf<Bitmap?>(null) }
     val sample = remember { previewContent(context) }
@@ -122,7 +127,7 @@ private fun WallpaperSettingsScreen(onBack: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.wallpaper_settings_title)) },
+                title = { Text(stringResource(R.string.settings_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
@@ -139,6 +144,41 @@ private fun WallpaperSettingsScreen(onBack: () -> Unit) {
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
+            GroupHeader(stringResource(R.string.settings_behavior))
+            SwitchRow(
+                title = stringResource(R.string.several_in_a_row),
+                summary = stringResource(if (severalInARow) R.string.several_in_a_row_on else R.string.several_in_a_row_off),
+                checked = severalInARow,
+                onChange = {
+                    ReviewSettings.setSeveralInARow(context, it)
+                    severalInARow = it
+                },
+            )
+
+            GroupHeader(stringResource(R.string.wallpaper_content))
+            Column {
+                val labels = listOf(R.string.wallpaper_content_question, R.string.wallpaper_content_question_answer)
+                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                    listOf(false, true).forEachIndexed { index, showAnswer ->
+                        SegmentedButton(
+                            selected = style.showAnswer == showAnswer,
+                            onClick = { update(style.copy(showAnswer = showAnswer)) },
+                            shape = SegmentedButtonDefaults.itemShape(index, labels.size),
+                        ) { Text(stringResource(labels[index])) }
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    stringResource(
+                        if (style.showAnswer) R.string.wallpaper_content_question_answer_summary
+                        else R.string.wallpaper_content_question_summary
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            GroupHeader(stringResource(R.string.wallpaper_settings_title))
             WallpaperPreview(style, background, sample, Modifier.align(Alignment.CenterHorizontally))
 
             Section(stringResource(R.string.wallpaper_background)) {
@@ -243,9 +283,13 @@ private fun previewContent(context: android.content.Context): CardContent {
     val state = AnkiDroidHelper(context).storedState
     val question = state?.takeIf { it.hasCard() }?.let { CardText.clean(it.question) }.orEmpty()
     return if (question.isNotEmpty()) {
-        CardContent(question, state!!.deckName.replace("::", " › "))
+        CardContent(question, state!!.deckName.replace("::", " › "), CardText.clean(state.answer))
     } else {
-        CardContent(context.getString(R.string.wallpaper_preview_question), context.getString(R.string.wallpaper_preview_deck))
+        CardContent(
+            context.getString(R.string.wallpaper_preview_question),
+            context.getString(R.string.wallpaper_preview_deck),
+            context.getString(R.string.wallpaper_preview_answer),
+        )
     }
 }
 
@@ -272,6 +316,25 @@ private fun WallpaperPreview(style: WallpaperStyle, background: Bitmap?, content
             renderer.draw(native, screenWidth, screenHeight, style, background, content)
             native.restore()
         }
+    }
+}
+
+/** Starts a group of settings. */
+@Composable
+private fun GroupHeader(title: String) {
+    Text(title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+}
+
+@Composable
+private fun SwitchRow(title: String, summary: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+    Row(Modifier.fillMaxWidth().clickable { onChange(!checked) }, verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.titleMedium)
+            Spacer(Modifier.height(4.dp))
+            Text(summary, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Spacer(Modifier.width(16.dp))
+        Switch(checked = checked, onCheckedChange = onChange)
     }
 }
 

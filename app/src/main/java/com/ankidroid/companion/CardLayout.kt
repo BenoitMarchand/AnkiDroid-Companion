@@ -14,6 +14,9 @@ object CardLayout {
     const val HORIZONTAL_MARGIN_DP = 32f
     const val MAX_TEXT_SIZE_DP = 40f
     const val MIN_TEXT_SIZE_DP = 14f
+
+    /** Size of the answer, when shown under the question, relative to the question's size. */
+    const val ANSWER_SCALE = 0.8f
     private const val TEXT_SIZE_STEP_DP = 2f
 
     data class Area(val left: Float, val top: Float, val right: Float, val bottom: Float) {
@@ -38,6 +41,15 @@ object CardLayout {
             size -= TEXT_SIZE_STEP_DP * density * scale
         }
         return size.coerceAtLeast(min)
+    }
+
+    /**
+     * How [available] height is shared between the question and the answer when they don't both fit: the shorter
+     * one keeps its height if it takes less than half, otherwise each gets half. Returns (question, answer).
+     */
+    fun shareHeight(available: Float, questionHeight: Float, answerHeight: Float): Pair<Float, Float> {
+        val question = minOf(questionHeight, maxOf(available / 2, available - answerHeight))
+        return question to minOf(answerHeight, available - question)
     }
 
     /** Top of the text block, so it is centered vertically in the area (or starts at its top if too tall). */

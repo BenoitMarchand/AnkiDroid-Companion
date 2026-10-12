@@ -44,7 +44,6 @@ class MainActivity : ComponentActivity() {
     private val selectedDeckIds = mutableStateListOf<Long>()
     private var currentCard by mutableStateOf<CurrentCard>(CurrentCard.NotStarted)
     private var setupStatus by mutableStateOf(SetupStatus())
-    private var severalInARow by mutableStateOf(false)
 
     private val permissionsLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { results ->
@@ -70,13 +69,9 @@ class MainActivity : ComponentActivity() {
             onGrantPermission = ::requestMissingPermissions,
             onRetry = ::refresh,
             onOpenWallpaperSettings = ::openWallpaperSettings,
-            onOpenWallpaperStyle = { startActivity(Intent(this, WallpaperSettingsActivity::class.java)) },
+            onOpenSettings = { startActivity(Intent(this, SettingsActivity::class.java)) },
             onOpenNotificationSettings = ::openNotificationSettings,
             onOpenBatterySettings = ::openBatterySettings,
-            onSetSeveralInARow = {
-                ReviewSettings.setSeveralInARow(this, it)
-                severalInARow = it
-            },
         )
         setContent {
             AnkiNotificationsTheme {
@@ -87,7 +82,6 @@ class MainActivity : ComponentActivity() {
                     currentCard = currentCard,
                     lockOnlyWallpaper = Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE,
                     setup = setupStatus,
-                    severalInARow = severalInARow,
                     actions = actions,
                 )
             }
@@ -119,7 +113,6 @@ class MainActivity : ComponentActivity() {
 
     private fun refresh() {
         setupStatus = readSetupStatus()
-        severalInARow = ReviewSettings.severalInARow(this)
         if (!AnkiDroidHelper.isApiAvailable(this)) {
             screenState = ScreenState.ApiUnavailable
             return

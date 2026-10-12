@@ -44,7 +44,8 @@ class Notifications {
 
     /**
      * Posts the card notification, or the "Bravo" notification when [card] is null. The answer and the answer
-     * buttons are only shown once "Show answer" was tapped ([CardReview.isAnswerRevealed]).
+     * buttons are only shown once "Show answer" was tapped ([CardReview.isAnswerRevealed]), or right away when the
+     * lock screen wallpaper already shows the answer ([CardReview.isAnswerOnWallpaper]).
      *
      * @param replace whether to remove the current notification first, which also closes its expanded view.
      * Pass false to update it in place (e.g. to reveal the answer).
@@ -59,7 +60,7 @@ class Notifications {
         if (card != null) {
             LockSession.onNotificationPosted(context)
             val title = context.getString(R.string.notification_title_deck, deckName)
-            val revealed = CardReview.isAnswerRevealed(context, card)
+            val revealed = CardReview.isAnswerRevealed(context, card) || CardReview.isAnswerOnWallpaper(context)
             collapsedView.setTextViewText(R.id.textViewCollapsedHeader, CardText.clean(card.q))
             collapsedView.setTextViewText(R.id.textViewCollapsedTitle, title)
 

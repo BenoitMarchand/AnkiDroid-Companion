@@ -18,6 +18,31 @@ class CardLayoutTest {
     }
 
     @Test
+    fun questionAndAnswerThatFitKeepTheirHeight() {
+        assertEquals(300f to 200f, CardLayout.shareHeight(available = 1000f, questionHeight = 300f, answerHeight = 200f))
+    }
+
+    @Test
+    fun aShortAnswerLeavesTheRestToALongQuestion() {
+        assertEquals(800f to 200f, CardLayout.shareHeight(available = 1000f, questionHeight = 1500f, answerHeight = 200f))
+    }
+
+    @Test
+    fun aShortQuestionLeavesTheRestToALongAnswer() {
+        assertEquals(100f to 900f, CardLayout.shareHeight(available = 1000f, questionHeight = 100f, answerHeight = 3000f))
+    }
+
+    @Test
+    fun aLongQuestionAndALongAnswerGetHalfEach() {
+        assertEquals(500f to 500f, CardLayout.shareHeight(available = 1000f, questionHeight = 2000f, answerHeight = 3000f))
+    }
+
+    @Test
+    fun withoutAnswerTheQuestionGetsEverything() {
+        assertEquals(1000f to 0f, CardLayout.shareHeight(available = 1000f, questionHeight = 2000f, answerHeight = 0f))
+    }
+
+    @Test
     fun shortTextKeepsTheMaximumSize() {
         val size = CardLayout.fitTextSize(availableHeight = 900f, density = density, scale = 1f) { 100f }
 

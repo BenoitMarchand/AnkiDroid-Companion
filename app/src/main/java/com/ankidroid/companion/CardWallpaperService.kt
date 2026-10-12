@@ -234,7 +234,7 @@ class CardWallpaperService : WallpaperService() {
             }
             // A card stored by an older version may have nothing left to show (e.g. a sound-only question).
             val question = CardText.clean(state.question).ifEmpty { return CardContent(getString(R.string.wallpaper_not_started)) }
-            return CardContent(question, state.deckName.replace("::", " › "))
+            return CardContent(question, state.deckName.replace("::", " › "), CardText.clean(state.answer))
         }
     }
 

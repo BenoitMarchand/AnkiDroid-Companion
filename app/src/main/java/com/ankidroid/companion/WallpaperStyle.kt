@@ -9,7 +9,7 @@ import android.net.Uri
 import android.util.Log
 import java.io.File
 
-/** How the lock screen card looks. Edited in [WallpaperSettingsActivity], drawn by [CardRenderer]. */
+/** How the lock screen card looks. Edited in [SettingsActivity], drawn by [CardRenderer]. */
 data class WallpaperStyle(
     val backgroundColor: Int = DEFAULT_BACKGROUND,
     val textColor: Int = Color.WHITE,
@@ -22,6 +22,8 @@ data class WallpaperStyle(
     val filter: PictureFilter = PictureFilter.DEFAULT,
     /** Strength of [filter], in percent (0 to [PictureFilter.MAX_INTENSITY]). */
     val filterIntensity: Int = PictureFilter.DEFAULT_INTENSITY,
+    /** Whether the card's answer is shown under the question (the notification then shows the answer too). */
+    val showAnswer: Boolean = false,
 ) {
     enum class TextSize(val scale: Float) { SMALL(0.8f), MEDIUM(1f), LARGE(1.25f) }
 
@@ -36,6 +38,7 @@ data class WallpaperStyle(
         private const val KEY_IMAGE_VERSION = "image_version"
         private const val KEY_FILTER = "picture_filter"
         private const val KEY_FILTER_INTENSITY = "picture_filter_intensity"
+        private const val KEY_SHOW_ANSWER = "show_answer"
         private const val IMAGE_FILE = "wallpaper_background.jpg"
 
         /** Images are scaled down to this size: enough for a phone screen, small enough to keep in memory. */
@@ -54,6 +57,7 @@ data class WallpaperStyle(
                 filter = PictureFilter.entries.firstOrNull { it.name == prefs.getString(KEY_FILTER, null) } ?: PictureFilter.DEFAULT,
                 filterIntensity = prefs.getInt(KEY_FILTER_INTENSITY, PictureFilter.DEFAULT_INTENSITY)
                     .coerceIn(0, PictureFilter.MAX_INTENSITY),
+                showAnswer = prefs.getBoolean(KEY_SHOW_ANSWER, false),
             )
         }
 
@@ -66,6 +70,7 @@ data class WallpaperStyle(
                 .putLong(KEY_IMAGE_VERSION, style.imageVersion)
                 .putString(KEY_FILTER, style.filter.name)
                 .putInt(KEY_FILTER_INTENSITY, style.filterIntensity)
+                .putBoolean(KEY_SHOW_ANSWER, style.showAnswer)
                 .apply()
         }
 
