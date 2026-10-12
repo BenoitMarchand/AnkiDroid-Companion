@@ -30,13 +30,11 @@ AnkiDroid Companion is an extension app for the AnkiDroid flashcard app. It lets
 
 3. **Open the app and grant access**: allow access to your AnkiDroid cards and allow notifications. The "Finish setting up" checklist on the main screen shows anything still missing.
 
-4. **Choose your decks**: tick decks in **All decks**, then order them under **Review order** with the arrows.
+4. **Choose your decks**: tick decks in **All decks**, then order them under **Review order** with the arrows. Reviewing starts as soon as a deck is ticked: the first card shows up in a notification. Untick every deck to stop.
 
-5. **Tap "Start reviewing"**: the first card shows up in a notification right away.
+5. **Optional, lock screen**: tap **Set lock screen wallpaper** and follow the instructions to choose the AnkiDroid Companion card for the **lock screen only** (on Android 8 to 13, live wallpapers apply to both screens). Tap **Customize** to change its look.
 
-6. **Optional, lock screen**: tap **Set lock screen wallpaper** and follow the instructions to choose the AnkiDroid Companion card for the **lock screen only** (on Android 8 to 13, live wallpapers apply to both screens). Tap **Customize** to change its look.
-
-7. **When you're done**: when no selected deck has a card left, you'll see "Bravo! You've finished all cards in the selected decks." A new notification comes when it's time to study again.
+6. **When you're done**: when no selected deck has a card left, you'll see "Bravo! You've finished all cards in the selected decks." A new notification comes when it's time to study again.
 
 
 ## Limitations

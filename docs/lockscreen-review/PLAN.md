@@ -83,7 +83,7 @@ Limits:
 ## How to test on a device
 
 1. Build and install the debug APK (in VS Code: Ctrl+Shift+B, which runs `scripts/install.ps1`).
-2. In the app, tick decks in **All decks**, order them under **Review order**, and tap **Start reviewing**.
+2. In the app, tick decks in **All decks**, and order them under **Review order**: reviewing starts with the first ticked deck.
 3. Tap **Set lock screen wallpaper** and follow the instructions to choose the lock screen only.
 4. Lock the phone: the question should be on the lock screen. Answer from the notification: the wallpaper should switch to the next card.
 5. Watch the logs: `adb logcat -s CardWallpaper Notifications` (or the VS Code task "Android: install on device + logs").

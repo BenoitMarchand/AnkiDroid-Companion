@@ -45,11 +45,10 @@ class DeckTreeUiTest {
                     decks = decks,
                     selectedDeckIds = listOf(1L),
                     currentCard = CurrentCard.NotStarted,
-                    isStarting = false,
                     lockOnlyWallpaper = true,
                     setup = SetupStatus(),
                     severalInARow = false,
-                    actions = MainScreenActions({}, { _, _ -> }, {}, {}, {}, {}, {}, {}, {}, {}),
+                    actions = MainScreenActions({}, { _, _ -> }, {}, {}, {}, {}, {}, {}, {}),
                 )
             }
         }

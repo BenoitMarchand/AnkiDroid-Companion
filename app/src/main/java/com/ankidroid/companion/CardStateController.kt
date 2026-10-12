@@ -41,7 +41,8 @@ object CardStateController {
     /**
      * Brings the displayed card in line with AnkiDroid: shows the actual next card if the displayed one was
      * reviewed, edited or removed in AnkiDroid (or the deck order changed), "Bravo" if no card is left, and posts
-     * the notification again if it disappeared (reboot, swiped away). Does nothing before "Start reviewing".
+     * the notification again if it disappeared (reboot, swiped away). Reviewing starts when the first deck is
+     * selected (the first card comes with an alert) and stops when no deck is selected any more.
      *
      * @param alertOnNewCards whether to alert (sound) when a card shows up after "Bravo"
      */
@@ -50,10 +51,12 @@ object CardStateController {
         val anki = AnkiDroidHelper(context)
         val state = anki.storedState
         val deckIds = DeckSelection.load(context)
-        val next = if (state != null) anki.queryNextCard(deckIds) else null
+        val next = if (deckIds.isNotEmpty()) anki.queryNextCard(deckIds) else null
         val displayed = state?.takeIf { it.hasCard() }
+        val firstCard = state == null
 
         val action = CardSync.decide(
+            decksSelected = deckIds.isNotEmpty(),
             started = state != null,
             displayed = displayed?.let { CardSync.CardKey(it.noteID, it.cardOrd) },
             displayedQuestion = displayed?.question.orEmpty(),
@@ -64,9 +67,11 @@ object CardStateController {
         )
         Log.i(TAG, "sync with AnkiDroid: $action")
         when (action) {
-            CardSync.Action.SHOW_NEXT -> showCard(context, anki, next!!, silent = !(alertOnNewCards && displayed == null))
-            CardSync.Action.SHOW_DONE -> showDone(context, anki, deckIds, silent = true)
+            CardSync.Action.SHOW_NEXT ->
+                showCard(context, anki, next!!, silent = !(firstCard || alertOnNewCards && displayed == null))
+            CardSync.Action.SHOW_DONE -> showDone(context, anki, deckIds, silent = !firstCard)
             CardSync.Action.REPOST -> post(context, displayed!!.toCardInfo(), displayed.deckName, silent = true)
+            CardSync.Action.STOP -> stop(context, anki)
             CardSync.Action.NONE -> Unit
         }
         action
@@ -102,6 +107,14 @@ object CardStateController {
         emptyCard.noteID = -1
         anki.storeState(deckIds.firstOrNull() ?: -1L, emptyCard)
         post(context, null, "", silent)
+    }
+
+    /** No deck selected: back to "not started", without a notification. */
+    private fun stop(context: Context, anki: AnkiDroidHelper) {
+        Log.i(TAG, "no deck selected, stopping")
+        anki.clearState()
+        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        manager.cancel(Notifications.NOTIFICATION_ID)
     }
 
     /**

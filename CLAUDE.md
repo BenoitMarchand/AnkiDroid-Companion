@@ -41,12 +41,12 @@ Single module `:app`, package `com.ankidroid.companion`, mixed Java + Kotlin. Th
 
 | File | Role |
 |---|---|
-| `MainActivity.kt` | Creates the notification channel, requests the AnkiDroid and notification permissions, loads decks and due counts off the main thread, and holds the screen state. "Start reviewing" shows the next card and schedules the worker. |
+| `MainActivity.kt` | Creates the notification channel, requests the AnkiDroid and notification permissions, loads decks and due counts off the main thread, and holds the screen state. Reviewing starts as soon as a deck is selected: the deck selection sync shows the first card and the worker is scheduled; unselecting every deck stops it. |
 | `ui/DeckTree.kt` | Builds the deck tree from `Parent::Child` names and the list of visible (unfolded) rows. |
 | `ui/MainScreen.kt` | Compose UI: setup checklist (notifications, wallpaper, battery), current card, lock screen wallpaper setup, the "Review order" list (selected decks, reordered with up/down arrows) and the "All decks" tree built from `Parent::Child` names (fold/unfold, checkbox to select). Stateless; actions go through `MainScreenActions`. |
 | `DeckSelection.kt` | The selected decks in priority order (SharedPreferences `com.ankidroid.companion.deck_selection`). |
 | `CardStateController.kt` | Single entry point for the displayed card. `showNextCard()` finds the next card in the selected decks, stores it and updates the notification. `syncWithAnkiDroid()` compares the displayed card with AnkiDroid's actual next card and only acts when needed (`CardSync`); `syncOnLock()` runs it in the background, at most every 10 minutes. Both do ContentProvider I/O (off the main thread) and are serialized. |
-| `CardSync.kt` | Pure decision of the sync: nothing, show the next card, show "Bravo", or post the notification again (reboot, swiped away), plus the lock check throttle. |
+| `CardSync.kt` | Pure decision of the sync: nothing, show the next card (or the first one once a deck is selected), show "Bravo", post the notification again (reboot, swiped away), or stop (no deck selected), plus the lock check throttle. |
 | `BootReceiver.kt` | After a reboot, runs the sync so the card notification comes back. |
 | `AnkiDataSource.kt` | The seam to AnkiDroid: `AnkiDataSource` (deck names and counts, raw due cards, due card keys, record a review), `ContentProviderAnkiData` (the real ContentProvider calls) and `AnkiData.source()` (a fake in device tests). |
 | `AnkiDroidHelper.java` | Card selection on top of `AnkiDataSource`: deck lookup and due counts, `queryNextCard(deckIds)` (first displayable due card of the first deck that has one), `queryCurrentScheduledCard(deckId, scanLimit)` (via `FlashCardsContract.ReviewInfo`; `queryNextCard` scans each deck progressively up to its due count, max 500), `isCardDue()` (checked before answering), `reviewCard(noteId, ord, startTime, ease)`, and persistence of the current state in SharedPreferences (`com.ichi2.anki.api.state`, JSON under `CURRENT_STATE`, including the question text). |
@@ -67,12 +67,12 @@ Single module `:app`, package `com.ankidroid.companion`, mixed Java + Kotlin. Th
 ### Core flow
 
 ```
-MainActivity "Start reviewing" ──► CardStateController.showNextCard ──► AnkiDroidHelper.queryNextCard(selected decks)
-        ▲                                   │                             └─ per deck, in order: first due card without sound in the question
-NotificationReceiver: reviewCard(ease) ─────┘──► storeState ──► Notifications.showNotification + lock screen wallpaper redraw
+NotificationReceiver: reviewCard(ease) ──► CardStateController.showNextCard ──► AnkiDroidHelper.queryNextCard(selected decks)
+                                                     │                             └─ per deck, in order: first due card without sound in the question
+                                                     └──► storeState ──► Notifications.showNotification + lock screen wallpaper redraw
 
-CardStateController.syncWithAnkiDroid: app opened, deck order changed, phone locked (max every 10 min), reboot, hourly worker
-        └─► queryNextCard ─► CardSync.decide ─► nothing / show next card / "Bravo" / post the notification again
+CardStateController.syncWithAnkiDroid: app opened, deck selection/order changed, phone locked (max every 10 min), reboot, hourly worker
+        └─► queryNextCard ─► CardSync.decide ─► nothing / show next (or first) card / "Bravo" / post the notification again / stop
 ```
 
 AnkiDroid doesn't tell other apps when a card is reviewed, edited or removed in it: that's why the displayed card is re-checked at these moments, and before each answer.

@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -26,7 +25,6 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -104,7 +102,6 @@ data class DeckItem(
 class MainScreenActions(
     val onToggleDeck: (Long) -> Unit,
     val onMoveDeck: (deckId: Long, offset: Int) -> Unit,
-    val onStartReviewing: () -> Unit,
     val onGrantPermission: () -> Unit,
     val onRetry: () -> Unit,
     val onOpenWallpaperSettings: () -> Unit,
@@ -121,7 +118,6 @@ fun MainScreen(
     decks: List<DeckItem>,
     selectedDeckIds: List<Long>,
     currentCard: CurrentCard,
-    isStarting: Boolean,
     lockOnlyWallpaper: Boolean,
     setup: SetupStatus,
     severalInARow: Boolean,
@@ -135,11 +131,6 @@ fun MainScreen(
                 title = { Text(stringResource(R.string.app_name), fontWeight = FontWeight.SemiBold) },
                 scrollBehavior = scrollBehavior,
             )
-        },
-        bottomBar = {
-            if (state == ScreenState.Ready) {
-                StartReviewingBar(enabled = selectedDeckIds.isNotEmpty(), isStarting = isStarting, onClick = actions.onStartReviewing)
-            }
         },
     ) { padding ->
         when (state) {
@@ -663,25 +654,6 @@ private fun DeckCounts(deck: DeckItem) {
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
-}
-
-@Composable
-private fun StartReviewingBar(enabled: Boolean, isStarting: Boolean, onClick: () -> Unit) {
-    Surface(tonalElevation = 3.dp, shadowElevation = 3.dp) {
-        Button(
-            onClick = onClick,
-            enabled = enabled && !isStarting,
-            modifier = Modifier.navigationBarsPadding().padding(16.dp).fillMaxWidth().height(52.dp),
-        ) {
-            if (isStarting) {
-                CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-            } else {
-                Icon(Icons.Filled.PlayArrow, contentDescription = null)
-                Spacer(Modifier.width(8.dp))
-                Text(stringResource(if (enabled) R.string.start_reviewing else R.string.select_a_deck_first))
-            }
-        }
-    }
 }
 
 @Composable

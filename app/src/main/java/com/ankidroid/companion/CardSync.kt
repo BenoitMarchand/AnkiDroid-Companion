@@ -20,19 +20,27 @@ object CardSync {
 
         /** Same card, but its notification is gone (reboot, swiped away): post it again. */
         REPOST,
+
+        /** No deck selected any more: remove the card and its notification. */
+        STOP,
     }
 
     /** Minimum time between two checks triggered by locking the phone. */
     const val LOCK_CHECK_INTERVAL_MS = 10 * 60 * 1000L
 
     /**
-     * @param started whether the user started reviewing (there is a stored state)
+     * Reviewing starts as soon as a deck is selected: the first card (or "Bravo") is shown, and it stops when no
+     * deck is selected any more.
+     *
+     * @param decksSelected whether at least one deck is selected
+     * @param started whether a card (or "Bravo") is stored
      * @param displayed the card currently displayed, or null if "Bravo" is displayed
      * @param next AnkiDroid's actual next card in the selected decks, or null if there is none
      * @param notificationVisible whether the card notification is currently posted
      * @param notificationHidden whether it was removed on purpose at unlock (posted again at the next lock)
      */
     fun decide(
+        decksSelected: Boolean,
         started: Boolean,
         displayed: CardKey?,
         displayedQuestion: String,
@@ -41,7 +49,8 @@ object CardSync {
         notificationVisible: Boolean,
         notificationHidden: Boolean,
     ): Action = when {
-        !started -> Action.NONE
+        !decksSelected -> if (started) Action.STOP else Action.NONE
+        !started -> if (next == null) Action.SHOW_DONE else Action.SHOW_NEXT
         next == null -> if (displayed != null) Action.SHOW_DONE else Action.NONE
         next != displayed || nextQuestion != displayedQuestion -> Action.SHOW_NEXT
         !notificationVisible && !notificationHidden -> Action.REPOST

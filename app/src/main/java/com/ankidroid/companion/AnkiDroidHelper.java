@@ -74,6 +74,11 @@ public class AnkiDroidHelper {
         cardsDb.edit().putString(KEY_CURRENT_STATE, js.toString()).apply();
     }
 
+    /** Removes the stored card: reviewing is not started any more. */
+    public void clearState() {
+        mContext.getSharedPreferences(STATE_DB, Context.MODE_PRIVATE).edit().remove(KEY_CURRENT_STATE).apply();
+    }
+
     public StoredState getStoredState() {
         final SharedPreferences cardsDb = mContext.getSharedPreferences(STATE_DB, Context.MODE_PRIVATE);
         String message = cardsDb.getString(KEY_CURRENT_STATE, "");
