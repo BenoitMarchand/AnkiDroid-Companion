@@ -12,6 +12,8 @@ import android.content.SharedPreferences
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.service.wallpaper.WallpaperService
 import android.util.Log
 import android.view.SurfaceHolder
@@ -100,6 +102,7 @@ class CardWallpaperService : WallpaperService() {
 
     inner class CardEngine : Engine() {
         private var showCard = false
+        private val handler = Handler(Looper.getMainLooper())
         private val renderer = CardRenderer(resources.displayMetrics.density)
         private var style = WallpaperStyle()
         private var background: Bitmap? = null
@@ -146,6 +149,7 @@ class CardWallpaperService : WallpaperService() {
 
         override fun onDestroy() {
             Log.i(TAG, "engine $engineId destroyed")
+            handler.removeCallbacksAndMessages(null)
             engines.remove(this)
             statePrefs.unregisterOnSharedPreferenceChangeListener(stateListener)
             LockSession.prefs(this@CardWallpaperService).unregisterOnSharedPreferenceChangeListener(sessionListener)
@@ -163,6 +167,19 @@ class CardWallpaperService : WallpaperService() {
                     onLocked()
                 }
                 draw()
+            } else if (!isPreview) {
+                // Hidden while the keyguard is gone: the phone was unlocked. USER_PRESENT can't be relied on: on
+                // Android 14+ the process is cached as soon as this lock screen wallpaper is hidden, and the
+                // held-back broadcast can be lost. The keyguard may still be going away: check again shortly after.
+                checkUnlocked()
+                handler.postDelayed(::checkUnlocked, UNLOCK_CHECK_DELAY_MS)
+            }
+        }
+
+        private fun checkUnlocked() {
+            if (!isLocked()) {
+                Log.i(TAG, "engine $engineId hidden, keyguard gone")
+                onUnlocked()
             }
         }
 
@@ -240,6 +257,7 @@ class CardWallpaperService : WallpaperService() {
 
     companion object {
         private const val TAG = "CardWallpaper"
+        private const val UNLOCK_CHECK_DELAY_MS = 500L
 
         /** Whether the card wallpaper is set on the lock screen (Android 14+: lock only, or on both screens). */
         @JvmStatic
