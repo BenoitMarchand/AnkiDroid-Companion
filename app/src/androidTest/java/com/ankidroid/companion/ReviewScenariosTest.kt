@@ -212,9 +212,13 @@ class ReviewScenariosTest {
     private fun notificationManager() = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
     private fun notificationTitle(): String? {
-        waitUntil { notificationManager().activeNotifications.any { it.id == Notifications.NOTIFICATION_ID } }
-        val notification = notificationManager().activeNotifications.first { it.id == Notifications.NOTIFICATION_ID }.notification
-        return notification.extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()
+        // Read it in the same check: a new card cancels the notification just before posting it again.
+        var notification: Notification? = null
+        waitUntil {
+            notification = notificationManager().activeNotifications.firstOrNull { it.id == Notifications.NOTIFICATION_ID }?.notification
+            notification != null
+        }
+        return notification!!.extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()
     }
 
     private fun waitUntil(timeoutMs: Long = 5_000, condition: () -> Boolean) {
