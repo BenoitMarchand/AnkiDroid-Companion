@@ -14,6 +14,7 @@ import android.graphics.Color
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.PowerManager
 import android.service.wallpaper.WallpaperService
 import android.util.Log
 import android.view.SurfaceHolder
@@ -52,7 +53,12 @@ class CardWallpaperService : WallpaperService() {
                 // Otherwise it's the lock screen: SCREEN_OFF may not have been delivered. Android 14+ holds the
                 // screen broadcasts back while the process is cached and keeps only the most recent one, so a
                 // SCREEN_ON can replace it. The session must still start (onLocked() does nothing the second time).
-                Intent.ACTION_SCREEN_ON -> if (isKeyguardLocked()) onLocked() else onUnlocked()
+                Intent.ACTION_SCREEN_ON -> if (isKeyguardLocked()) {
+                    onLocked()
+                    LockSession.onCardVisible(this@CardWallpaperService)
+                } else {
+                    onUnlocked()
+                }
             }
             active.forEach { it.onScreenEvent(action) }
         }
@@ -90,12 +96,17 @@ class CardWallpaperService : WallpaperService() {
 
     private fun onUnlocked() {
         val started = AnkiDroidHelper(this).storedState != null
-        if (LockSession.onUnlocked(this, started)) {
+        val unlock = LockSession.onUnlocked(this, started)
+        if (unlock.hide) {
             // The notification is only visible while the phone is locked.
             Log.i(TAG, "unlocked, removing the notification")
             (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).cancel(Notifications.NOTIFICATION_ID)
         }
+        // "Change the card at every unlock": the card was seen but not answered, show another one at the next lock.
+        if (unlock.rotate) CardStateController.rotateOnUnlock(this)
     }
+
+    private fun isInteractive(): Boolean = (getSystemService(Context.POWER_SERVICE) as PowerManager).isInteractive
 
     private fun isKeyguardLocked(): Boolean =
         (getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager).isKeyguardLocked
@@ -165,6 +176,8 @@ class CardWallpaperService : WallpaperService() {
                     Log.i(TAG, "engine $engineId visible on the lock screen")
                     showCard = true
                     onLocked()
+                    // Visible with the screen off too (the lock screen is prepared when the screen turns off).
+                    if (isInteractive()) LockSession.onCardVisible(this@CardWallpaperService)
                 }
                 draw()
             } else if (!isPreview) {

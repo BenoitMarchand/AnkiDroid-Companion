@@ -38,6 +38,8 @@ object CardSync {
      * @param next AnkiDroid's actual next card in the selected decks, or null if there is none
      * @param notificationVisible whether the card notification is currently posted
      * @param notificationHidden whether it was removed on purpose at unlock (posted again at the next lock)
+     * @param displayedInRotation whether the displayed card, unchanged, is in the rotation set of "Change the card
+     * at every unlock": it is then kept, even though it isn't AnkiDroid's next card
      */
     fun decide(
         decksSelected: Boolean,
@@ -48,11 +50,12 @@ object CardSync {
         nextQuestion: String,
         notificationVisible: Boolean,
         notificationHidden: Boolean,
+        displayedInRotation: Boolean = false,
     ): Action = when {
         !decksSelected -> if (started) Action.STOP else Action.NONE
         !started -> if (next == null) Action.SHOW_DONE else Action.SHOW_NEXT
         next == null -> if (displayed != null) Action.SHOW_DONE else Action.NONE
-        next != displayed || nextQuestion != displayedQuestion -> Action.SHOW_NEXT
+        (next != displayed || nextQuestion != displayedQuestion) && !displayedInRotation -> Action.SHOW_NEXT
         !notificationVisible && !notificationHidden -> Action.REPOST
         else -> Action.NONE
     }

@@ -17,6 +17,8 @@ object LockSession {
     private const val KEY_LOCKED = "locked"
     private const val KEY_HIDDEN = "notification_hidden"
     const val KEY_WAITING = "waiting_for_next_lock"
+    private const val KEY_ANSWERED = "answered"
+    private const val KEY_VISIBLE_SINCE = "card_visible_since"
 
     enum class AfterAnswer {
         /** Show the next card right away. */
@@ -45,23 +47,53 @@ object LockSession {
         val prefs = prefs(context)
         // The screen can turn off and on several times before an unlock: that's still the same session.
         if (prefs.getBoolean(KEY_LOCKED, false)) return false
-        prefs.edit().putBoolean(KEY_LOCKED, true).putBoolean(KEY_WAITING, false).apply()
+        prefs.edit()
+            .putBoolean(KEY_LOCKED, true)
+            .putBoolean(KEY_WAITING, false)
+            .putBoolean(KEY_ANSWERED, false)
+            .putLong(KEY_VISIBLE_SINCE, 0)
+            .apply()
         return prefs.getBoolean(KEY_HIDDEN, false)
     }
 
-    /** The phone was unlocked. Returns whether the notification must be removed. */
-    fun onUnlocked(context: Context, started: Boolean): Boolean {
+    /** The screen is on with the lock screen shown: the card is visible. Only the first time of the session counts. */
+    fun onCardVisible(context: Context, now: Long = System.currentTimeMillis()) {
+        val prefs = prefs(context)
+        if (prefs.getBoolean(KEY_LOCKED, false) && prefs.getLong(KEY_VISIBLE_SINCE, 0) == 0L) {
+            prefs.edit().putLong(KEY_VISIBLE_SINCE, now).apply()
+        }
+    }
+
+    /** What to do when the phone is unlocked. */
+    data class Unlock(
+        /** Remove the notification. */
+        val hide: Boolean,
+        /** Change the card ("Change the card at every unlock"): it is posted at the next lock. */
+        val rotate: Boolean,
+    )
+
+    /** The phone was unlocked. */
+    fun onUnlocked(context: Context, started: Boolean, now: Long = System.currentTimeMillis()): Unlock {
+        val prefs = prefs(context)
         val hide = shouldHideOnUnlock(started)
-        prefs(context).edit().putBoolean(KEY_LOCKED, false).putBoolean(KEY_HIDDEN, hide).apply()
-        return hide
+        val rotate = CardRotation.shouldRotate(
+            enabled = started && ReviewSettings.rotateOnUnlock(context),
+            wasLocked = prefs.getBoolean(KEY_LOCKED, false),
+            answered = prefs.getBoolean(KEY_ANSWERED, false),
+            visibleSince = prefs.getLong(KEY_VISIBLE_SINCE, 0),
+            now = now,
+        )
+        prefs.edit().putBoolean(KEY_LOCKED, false).putBoolean(KEY_HIDDEN, hide).apply()
+        return Unlock(hide, rotate)
     }
 
     /** A card was answered from the notification. Returns what to do next. */
     fun onAnswered(context: Context): AfterAnswer {
         val after = afterAnswer(CardWallpaperService.isActive(context), ReviewSettings.severalInARow(context))
-        if (after == AfterAnswer.WAIT_FOR_NEXT_LOCK) {
-            prefs(context).edit().putBoolean(KEY_WAITING, true).apply()
-        }
+        prefs(context).edit()
+            .putBoolean(KEY_ANSWERED, true)
+            .apply { if (after == AfterAnswer.WAIT_FOR_NEXT_LOCK) putBoolean(KEY_WAITING, true) }
+            .apply()
         return after
     }
 
@@ -98,12 +130,33 @@ object LockSession {
 object ReviewSettings {
     private const val PREFS = "com.ankidroid.companion.review_settings"
     private const val KEY_SEVERAL_IN_A_ROW = "several_in_a_row"
+    private const val KEY_ROTATE_ON_UNLOCK = "rotate_on_unlock"
+    private const val KEY_ROTATION_SIZE = "rotation_size"
 
     /** "Review several cards in a row": off by default, one card per lock session. */
     fun severalInARow(context: Context): Boolean = prefs(context).getBoolean(KEY_SEVERAL_IN_A_ROW, false)
 
     fun setSeveralInARow(context: Context, enabled: Boolean) {
         prefs(context).edit().putBoolean(KEY_SEVERAL_IN_A_ROW, enabled).apply()
+    }
+
+    /** "Change the card at every unlock": off by default. Only works with the lock screen wallpaper. */
+    fun rotateOnUnlock(context: Context): Boolean = prefs(context).getBoolean(KEY_ROTATE_ON_UNLOCK, false)
+
+    fun setRotateOnUnlock(context: Context, enabled: Boolean) {
+        prefs(context).edit().putBoolean(KEY_ROTATE_ON_UNLOCK, enabled).apply()
+    }
+
+    /** Whether the displayed card rotates: the option is on and the wallpaper gives the unlock events. */
+    fun isRotating(context: Context): Boolean = rotateOnUnlock(context) && CardWallpaperService.isActive(context)
+
+    /** Number of due cards the card rotates through ([CardRotation.DEFAULT_SIZE] by default). */
+    fun rotationSize(context: Context): Int =
+        prefs(context).getInt(KEY_ROTATION_SIZE, CardRotation.DEFAULT_SIZE)
+            .coerceIn(CardRotation.MIN_SIZE, CardRotation.MAX_SIZE)
+
+    fun setRotationSize(context: Context, size: Int) {
+        prefs(context).edit().putInt(KEY_ROTATION_SIZE, size).apply()
     }
 
     private fun prefs(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)

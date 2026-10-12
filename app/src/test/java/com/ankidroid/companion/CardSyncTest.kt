@@ -20,7 +20,23 @@ class CardSyncTest {
         nextQuestion: String = "Question A",
         visible: Boolean = true,
         hidden: Boolean = false,
-    ) = CardSync.decide(decksSelected, started, displayed, displayedQuestion, next, nextQuestion, visible, hidden)
+        inRotation: Boolean = false,
+    ) = CardSync.decide(decksSelected, started, displayed, displayedQuestion, next, nextQuestion, visible, hidden, inRotation)
+
+    @Test
+    fun keepsARotatedCardThatIsNotAnkiDroidsNext() {
+        assertEquals(Action.NONE, decide(displayed = cardB, displayedQuestion = "Question B", inRotation = true))
+    }
+
+    @Test
+    fun postsARotatedCardAgainWhenItsNotificationIsGone() {
+        assertEquals(Action.REPOST, decide(displayed = cardB, displayedQuestion = "Question B", inRotation = true, visible = false))
+    }
+
+    @Test
+    fun replacesARotatedCardThatLeftTheRotation() {
+        assertEquals(Action.SHOW_NEXT, decide(displayed = cardB, displayedQuestion = "Question B", inRotation = false))
+    }
 
     @Test
     fun nothingToDoWhenTheDisplayedCardIsStillNext() {

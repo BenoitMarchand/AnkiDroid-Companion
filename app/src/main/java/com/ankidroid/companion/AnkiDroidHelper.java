@@ -10,6 +10,7 @@ import android.widget.Toast;
 
 import com.ichi2.anki.api.AddContentApi;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -114,29 +115,39 @@ public class AnkiDroidHelper {
      * The first displayable card among the next {@code scanLimit} due cards of the deck, or null if they all
      * have to be skipped.
      */
-    @SuppressLint("DirectSystemCurrentTimeMillisUsage")
     public CardInfo queryCurrentScheduledCard(long deckID, int scanLimit) {
+        List<CardInfo> cards = queryDisplayableCards(deckID, scanLimit);
+        return cards.isEmpty() ? null : cards.get(0);
+    }
+
+    /**
+     * The displayable cards among the next {@code scanLimit} due cards of the deck, in AnkiDroid's order.
+     */
+    @SuppressLint("DirectSystemCurrentTimeMillisUsage")
+    public List<CardInfo> queryDisplayableCards(long deckID, int scanLimit) {
         // This call requires com.ichi2.anki.permission.READ_WRITE_DATABASE to be granted by user as it is
         // marked as "dangerous" by ankidroid app. This permission has been asked before.
         if (!mSource.isPermissionGranted()) {
             uiHandler.post(() -> Toast.makeText(mContext,
                     R.string.permission_not_granted,
                     Toast.LENGTH_SHORT).show());
-            return null;
+            return new ArrayList<>();
         }
         // Fetch several due cards so the ones we can't display (sound in the question) can be skipped.
         List<CardInfo> cards = mSource.dueCards(deckID, scanLimit);
+        List<CardInfo> displayable = new ArrayList<>();
         for (CardInfo card : cards) {
             if (isDisplayable(card)) {
                 card.cardStartTime = System.currentTimeMillis();
-                return card;
+                displayable.add(card);
+            } else {
+                Log.i("Notifications", "skipping card that can't be displayed, noteID: " + card.noteID + ", ord: " + card.cardOrd);
             }
-            Log.i("Notifications", "skipping card that can't be displayed, noteID: " + card.noteID + ", ord: " + card.cardOrd);
         }
-        if (!cards.isEmpty()) {
+        if (!cards.isEmpty() && displayable.isEmpty()) {
             Log.i("Notifications", "no displayable card among the next " + cards.size() + " due cards");
         }
-        return null;
+        return displayable;
     }
 
     /**
@@ -157,10 +168,7 @@ public class AnkiDroidHelper {
         Map<Long, int[]> counts = getDeckCounts();
         return DeckScanner.findNextCard(
                 deckIds,
-                deckId -> {
-                    int[] deckCounts = counts.get(deckId);
-                    return deckCounts == null ? null : deckCounts[0] + deckCounts[1] + deckCounts[2];
-                },
+                deckId -> dueCount(counts, deckId),
                 (deckId, scanLimit) -> {
                     CardInfo card = queryCurrentScheduledCard(deckId, scanLimit);
                     if (card != null) {
@@ -172,6 +180,33 @@ public class AnkiDroidHelper {
                     }
                     return card;
                 });
+    }
+
+    /**
+     * The rotation set of "Change the card at every unlock": the first {@code size} displayable due cards of the
+     * decks, in order ({@link CardRotation#collect}).
+     */
+    public List<CardInfo> queryRotation(List<Long> deckIds, int size) {
+        Map<Long, int[]> counts = getDeckCounts();
+        return CardRotation.collect(
+                deckIds,
+                size,
+                deckId -> dueCount(counts, deckId),
+                (deckId, scanLimit) -> {
+                    List<CardInfo> cards = queryDisplayableCards(deckId, scanLimit);
+                    String deckName = cards.isEmpty() ? null : mSource.deckName(deckId);
+                    for (CardInfo card : cards) {
+                        card.deckId = deckId;
+                        card.deckName = deckName == null ? "" : deckName;
+                    }
+                    return cards;
+                },
+                card -> new CardSync.CardKey(card.noteID, card.cardOrd));
+    }
+
+    private static Integer dueCount(Map<Long, int[]> counts, long deckId) {
+        int[] deckCounts = counts.get(deckId);
+        return deckCounts == null ? null : deckCounts[0] + deckCounts[1] + deckCounts[2];
     }
 
     /**
