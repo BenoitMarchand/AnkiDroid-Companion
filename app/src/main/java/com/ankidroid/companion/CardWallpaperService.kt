@@ -47,7 +47,10 @@ class CardWallpaperService : WallpaperService() {
             when (action) {
                 // The screen turning off means the device is about to be locked:
                 // prepare the card now so it is already there when the screen turns on.
-                Intent.ACTION_SCREEN_OFF -> onLocked()
+                Intent.ACTION_SCREEN_OFF -> {
+                    ReviewTimer.clear(this@CardWallpaperService)
+                    onLocked()
+                }
                 Intent.ACTION_USER_PRESENT -> onUnlocked()
                 // Turned on again before the keyguard locked (lock delay): no USER_PRESENT will come.
                 // Otherwise it's the lock screen: SCREEN_OFF may not have been delivered. Android 14+ holds the
@@ -55,7 +58,7 @@ class CardWallpaperService : WallpaperService() {
                 // SCREEN_ON can replace it. The session must still start (onLocked() does nothing the second time).
                 Intent.ACTION_SCREEN_ON -> if (isKeyguardLocked()) {
                     onLocked()
-                    LockSession.onCardVisible(this@CardWallpaperService)
+                    onCardVisible()
                 } else {
                     onUnlocked()
                 }
@@ -94,7 +97,16 @@ class CardWallpaperService : WallpaperService() {
         CardStateController.syncOnLock(this)
     }
 
+    /** The screen is on with the lock screen shown: the card is seen. */
+    private fun onCardVisible() {
+        LockSession.onCardVisible(this)
+        val card = AnkiDroidHelper(this).storedState?.takeIf { it.hasCard() } ?: return
+        ReviewTimer.onCardSeen(this, CardSync.CardKey(card.noteID, card.cardOrd))
+    }
+
     private fun onUnlocked() {
+        // Unlocked without an answer: the time spent looking at the card doesn't count.
+        ReviewTimer.clear(this)
         val started = AnkiDroidHelper(this).storedState != null
         val unlock = LockSession.onUnlocked(this, started)
         if (unlock.hide) {
@@ -177,10 +189,12 @@ class CardWallpaperService : WallpaperService() {
                     showCard = true
                     onLocked()
                     // Visible with the screen off too (the lock screen is prepared when the screen turns off).
-                    if (isInteractive()) LockSession.onCardVisible(this@CardWallpaperService)
+                    if (isInteractive()) onCardVisible()
                 }
                 draw()
             } else if (!isPreview) {
+                // Screen off: the card is no longer seen (SCREEN_OFF may be held back on Android 14+).
+                if (!isInteractive()) ReviewTimer.clear(this@CardWallpaperService)
                 // Hidden while the keyguard is gone: the phone was unlocked. USER_PRESENT can't be relied on: on
                 // Android 14+ the process is cached as soon as this lock screen wallpaper is hidden, and the
                 // held-back broadcast can be lost. The keyguard may still be going away: check again shortly after.

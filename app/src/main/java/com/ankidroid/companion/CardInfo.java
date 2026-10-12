@@ -14,7 +14,6 @@ public class CardInfo {
     JSONArray nextReviewTexts = null;
     JSONArray fileNames;
     ArrayList<Uri> soundUris = null;
-    long cardStartTime;
 
     public synchronized void addSoundUri(Uri path) {
         Uri uri = path;//Uri.fromFile(new File(path));

@@ -27,6 +27,8 @@ object CardReview {
 
         if (localState != null && localState.hasCard()) {
             Log.i(TAG, "answering note ${localState.noteID}, ord ${localState.cardOrd}")
+            // Measured now, before the AnkiDroid queries below.
+            val timeTaken = ReviewTimer.timeTaken(context, CardSync.CardKey(localState.noteID, localState.cardOrd))
             val ease = AnswerButtons.easeFor(button, localState.buttonCount)
             if (ease == null) {
                 Log.w(TAG, "button $button is not valid for a card with ${localState.buttonCount} buttons")
@@ -39,7 +41,8 @@ object CardReview {
             if (anki.isCardDue(localState.deckId, localState.noteID, localState.cardOrd) == false) {
                 Log.i(TAG, "card no longer due in AnkiDroid, not answering it")
             } else {
-                anki.reviewCard(localState.noteID, localState.cardOrd, localState.cardStartTime, ease)
+                Log.i(TAG, "time taken: $timeTaken ms")
+                anki.reviewCard(localState.noteID, localState.cardOrd, ease, timeTaken)
             }
         }
 
@@ -55,6 +58,8 @@ object CardReview {
     /** Shows the answer of the displayed card, in the notification too (updated in place, without alert). */
     fun revealAnswer(context: Context) {
         val state = AnkiDroidHelper(context).storedState?.takeIf { it.hasCard() } ?: return
+        // The card is obviously seen: start the timer if no screen event did (it keeps running otherwise).
+        ReviewTimer.onCardSeen(context, CardSync.CardKey(state.noteID, state.cardOrd))
         prefs(context).edit().putString(KEY_REVEALED_CARD, key(state.noteID, state.cardOrd)).apply()
         if (!LockSession.mayPostNow(context)) return
         Notifications.create().showNotification(context, state.toCardInfo(), state.deckName, isSilent = true, replace = false)

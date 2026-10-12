@@ -40,7 +40,7 @@ class ReviewScenariosTest {
         snapshot = AppDataSnapshot.take(context)
         // Start from a clean state: no card shown, no lock session, default settings.
         listOf(AnkiDroidHelper.STATE_DB, "com.ankidroid.companion.lock_session", "com.ankidroid.companion.card_review",
-            "com.ankidroid.companion.review_settings").forEach {
+            "com.ankidroid.companion.review_settings", "com.ankidroid.companion.review_timer").forEach {
             context.getSharedPreferences(it, Context.MODE_PRIVATE).edit().clear().commit()
         }
         notificationManager().cancel(Notifications.NOTIFICATION_ID)
@@ -138,6 +138,21 @@ class ReviewScenariosTest {
 
         assertEquals(listOf(FakeAnkiDataSource.Answer(10, 0, ease = 3)), anki.answers)
         assertEquals("Anki • Spanish", notificationTitle())
+    }
+
+    @Test
+    fun answeringACard_sendsTheTimeSinceTheCardWasShown() {
+        anki.deck(1, "Spanish", FakeAnkiDataSource.Card(10, question = "Hola"))
+        select(1)
+        start()
+
+        // Without the lock screen wallpaper (reset by the test run), the timer starts when the card is posted.
+        SystemClock.sleep(1_000)
+        press("ACTION_BUTTON_3")
+        waitUntil { anki.answers.isNotEmpty() }
+
+        val timeTaken = anki.timesTaken.single()
+        assertTrue("time taken: $timeTaken ms", timeTaken in 1_000L..10_000L)
     }
 
     @Test
