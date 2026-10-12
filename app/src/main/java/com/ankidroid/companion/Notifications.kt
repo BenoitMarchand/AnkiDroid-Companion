@@ -59,15 +59,11 @@ class Notifications {
         if (card != null) {
             LockSession.onNotificationPosted(context)
             val title = context.getString(R.string.notification_title_deck, deckName)
-            val question = CardText.clean(card.q)
-            val answer = CardText.clean(card.a)
             val revealed = CardReview.isAnswerRevealed(context, card)
-            collapsedView.setTextViewText(R.id.textViewCollapsedHeader, question)
+            collapsedView.setTextViewText(R.id.textViewCollapsedHeader, CardText.clean(card.q))
             collapsedView.setTextViewText(R.id.textViewCollapsedTitle, title)
 
-            val expandedView = RemoteViews(context.packageName, R.layout.notification_expanded_full)
-            expandedView.setTextViewText(R.id.textViewExpandedHeader, question)
-            expandedView.setTextViewText(R.id.textViewContent, answer)
+            val expandedView = cardView(context, card)
             expandedView.setViewVisibility(R.id.answerGroup, if (revealed) View.VISIBLE else View.GONE)
             expandedView.setViewVisibility(R.id.buttonShowAnswer, if (revealed) View.GONE else View.VISIBLE)
             expandedView.setOnClickPendingIntent(R.id.buttonShowAnswer, createIntent(context, ACTION_SHOW_ANSWER))
@@ -126,20 +122,47 @@ class Notifications {
         notificationManager.notify(NOTIFICATION_ID, notification)
     }
 
-    /** After this session's review: a short message in place of the card, which disappears by itself. */
-    fun showNextCardMessage(context: Context) {
+    /**
+     * After this session's review: the same notification, updated in place, shows the answered [card] with
+     * "Next card at your next unlock" instead of the answer buttons, then disappears by itself.
+     */
+    fun showNextCardMessage(context: Context, card: CardInfo, deckName: String) {
         createChannel(context)
+        val message = context.getString(R.string.next_card_at_next_unlock)
+        val title = context.getString(R.string.notification_title_deck, deckName)
+        val collapsedView = RemoteViews(context.packageName, R.layout.notification_collapsed)
+        collapsedView.setTextViewText(R.id.textViewCollapsedHeader, message)
+        collapsedView.setTextViewText(R.id.textViewCollapsedTitle, title)
+
+        val expandedView = cardView(context, card)
+        expandedView.setViewVisibility(R.id.answerGroup, View.VISIBLE)
+        expandedView.setViewVisibility(R.id.answerButtons, View.GONE)
+        expandedView.setViewVisibility(R.id.textViewNextCard, View.VISIBLE)
+        expandedView.setViewVisibility(R.id.buttonShowAnswer, View.GONE)
+
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setContentTitle(context.getString(R.string.notification_title))
-            .setContentText(context.getString(R.string.next_card_at_next_unlock))
+            .setStyle(NotificationCompat.DecoratedCustomViewStyle())
+            .setCustomContentView(collapsedView)
+            .setCustomBigContentView(expandedView)
+            .setContentTitle(title)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setTimeoutAfter(NEXT_CARD_MESSAGE_TIMEOUT_MS)
             .setSilent(true)
+            .setOnlyAlertOnce(true)
             .build()
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        notificationManager.cancel(NOTIFICATION_ID)
+        // No cancel first: the notification is updated in place and stays expanded.
         notificationManager.notify(NOTIFICATION_ID, notification)
+    }
+
+    /** The expanded view with [card]'s question and answer; the caller chooses what is visible. */
+    private fun cardView(context: Context, card: CardInfo): RemoteViews {
+        val view = RemoteViews(context.packageName, R.layout.notification_expanded_full)
+        view.setTextViewText(R.id.textViewExpandedHeader, CardText.clean(card.q))
+        view.setTextViewText(R.id.textViewContent, CardText.clean(card.a))
+        return view
     }
 
     private fun createIntent(context: Context, action: String): PendingIntent {

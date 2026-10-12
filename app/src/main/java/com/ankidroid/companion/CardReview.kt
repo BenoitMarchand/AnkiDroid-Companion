@@ -46,7 +46,8 @@ object CardReview {
         // With one review per session, the next card is stored now but its notification waits for the next lock.
         CardStateController.showNextCard(context, silent = true, notifyIfNone = true)
         if (after == LockSession.AfterAnswer.WAIT_FOR_NEXT_LOCK) {
-            Notifications.create().showNextCardMessage(context)
+            // The answered card stays in the notification, with the message in place of its buttons.
+            Notifications.create().showNextCardMessage(context, localState!!.toCardInfo(), localState.deckName)
         }
         return after
     }

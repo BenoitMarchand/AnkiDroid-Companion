@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Question, then "Show answer"; once revealed: the answer and the answer buttons. -->
+<!-- Question, then "Show answer"; once revealed: the answer and the answer buttons. After the session's answer,
+     the message "Next card at your next unlock" replaces the buttons. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/layoutExpanded"
     android:layout_width="match_parent"
@@ -35,6 +36,7 @@
             android:paddingVertical="8dp" />
 
         <LinearLayout
+            android:id="@+id/answerButtons"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal">
@@ -67,6 +69,15 @@
                 android:textColor="@color/easy_button_text"
                 android:text="@string/easy" />
         </LinearLayout>
+
+        <TextView
+            android:id="@+id/textViewNextCard"
+            style="@style/TextAppearance.Compat.Notification.Title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingVertical="8dp"
+            android:text="@string/next_card_at_next_unlock"
+            android:visibility="gone" />
     </LinearLayout>
 
     <Button
