@@ -4,7 +4,6 @@ public class StoredState {
     long deckId;
     int cardOrd;
     long noteID;
-    long cardStartTime;
     String question = "";
     String answer = "";
     int buttonCount = 4;
@@ -25,7 +24,6 @@ public class StoredState {
         card.q = question;
         card.a = answer;
         card.buttonCount = buttonCount;
-        card.cardStartTime = cardStartTime;
         return card;
     }
 }

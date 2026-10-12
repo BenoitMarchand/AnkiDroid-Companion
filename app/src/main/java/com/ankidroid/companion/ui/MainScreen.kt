@@ -35,11 +35,9 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -198,9 +196,6 @@ private fun ReadyContent(
             item(key = "setup") { SetupCard(setup, onSetWallpaper = { showWallpaperInstructions = true }, actions) }
         }
         item(key = "current") { CurrentCardCard(currentCard, onlyWhileLocked = setup.wallpaperActive) }
-        item(key = "lock") {
-            LockScreenCard(wallpaperActive = setup.wallpaperActive, onSetWallpaper = { showWallpaperInstructions = true })
-        }
 
         item(key = "order-header") {
             SectionHeader(stringResource(R.string.review_order), stringResource(R.string.review_order_explanation))
@@ -370,42 +365,6 @@ private fun CurrentCardCard(currentCard: CurrentCard, onlyWhileLocked: Boolean) 
 }
 
 @Composable
-private fun LockScreenCard(wallpaperActive: Boolean, onSetWallpaper: () -> Unit) {
-    OutlinedCard(Modifier.fillMaxWidth()) {
-        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Surface(shape = CircleShape, color = MaterialTheme.colorScheme.secondaryContainer, modifier = Modifier.size(40.dp)) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(Icons.Filled.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
-                }
-            }
-            Spacer(Modifier.width(16.dp))
-            Column(Modifier.weight(1f)) {
-                Text(stringResource(R.string.lock_screen), style = MaterialTheme.typography.titleSmall)
-                Text(
-                    stringResource(R.string.lock_screen_explanation),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-        Text(
-            stringResource(R.string.lock_screen_sensitive_tip),
-            modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        if (!wallpaperActive) {
-            FilledTonalButton(
-                onClick = onSetWallpaper,
-                modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp).fillMaxWidth(),
-            ) {
-                Text(stringResource(R.string.set_lock_wallpaper), maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-        }
-    }
-}
-
-@Composable
 private fun WallpaperInstructionsDialog(lockOnlyWallpaper: Boolean, onDismiss: () -> Unit, onOpenWallpaperSettings: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -434,9 +393,9 @@ private fun WallpaperInstructionsDialog(lockOnlyWallpaper: Boolean, onDismiss: (
 data class SetupStatus(
     val notificationsEnabled: Boolean = true,
     val wallpaperActive: Boolean = true,
-    val batteryUnrestricted: Boolean = true,
+    val backgroundAllowed: Boolean = true,
 ) {
-    val isComplete get() = notificationsEnabled && wallpaperActive && batteryUnrestricted
+    val isComplete get() = notificationsEnabled && wallpaperActive && backgroundAllowed
 }
 
 @Composable
@@ -458,7 +417,7 @@ private fun SetupCard(setup: SetupStatus, onSetWallpaper: () -> Unit, actions: M
             if (!setup.wallpaperActive) {
                 SetupItem(R.string.setup_wallpaper, R.string.setup_wallpaper_detail, onSetWallpaper)
             }
-            if (!setup.batteryUnrestricted) {
+            if (!setup.backgroundAllowed) {
                 SetupItem(R.string.setup_battery, R.string.setup_battery_detail, actions.onOpenBatterySettings)
             }
         }

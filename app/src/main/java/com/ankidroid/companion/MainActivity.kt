@@ -1,13 +1,14 @@
 package com.ankidroid.companion
 
 import android.Manifest
+import android.app.ActivityManager
 import android.app.NotificationManager
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.os.PowerManager
 import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -203,13 +204,20 @@ class MainActivity : ComponentActivity() {
 
         val wallpaperActive = CardWallpaperService.isActive(this)
 
-        val powerManager = getSystemService(POWER_SERVICE) as PowerManager
         return SetupStatus(
             notificationsEnabled = notificationsEnabled,
             wallpaperActive = wallpaperActive,
-            batteryUnrestricted = powerManager.isIgnoringBatteryOptimizations(packageName),
+            backgroundAllowed = !isBackgroundRestricted(),
         )
     }
+
+    /**
+     * Whether the user restricted the app's background activity ("Restricted" battery usage), which stops the
+     * hourly check. The default battery optimization ("Optimized") only delays it a little: that's fine.
+     */
+    private fun isBackgroundRestricted(): Boolean =
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.P &&
+            (getSystemService(ACTIVITY_SERVICE) as ActivityManager).isBackgroundRestricted
 
     private fun openNotificationSettings() {
         startActivity(
@@ -218,8 +226,8 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun openBatterySettings() {
-        // The list of apps and their battery optimization; asking directly needs a permission Play restricts.
-        startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+        // The app's info page, where "App battery usage" is.
+        startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", packageName, null)))
     }
 
     private fun openWallpaperSettings() {

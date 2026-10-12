@@ -70,6 +70,7 @@ import com.ankidroid.companion.ui.theme.AnkiNotificationsTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.math.roundToInt
 
 /**
  * The app's settings: reviewing behavior, what the lock screen wallpaper shows, and how it looks. Opened from the
@@ -99,6 +100,8 @@ private fun SettingsScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var severalInARow by remember { mutableStateOf(ReviewSettings.severalInARow(context)) }
+    var rotateOnUnlock by remember { mutableStateOf(ReviewSettings.rotateOnUnlock(context)) }
+    val wallpaperActive = remember { CardWallpaperService.isActive(context) }
     var style by remember { mutableStateOf(WallpaperStyle.load(context)) }
     var background by remember { mutableStateOf<Bitmap?>(null) }
     val sample = remember { previewContent(context) }
@@ -154,6 +157,29 @@ private fun SettingsScreen(onBack: () -> Unit) {
                     severalInARow = it
                 },
             )
+            Column {
+                SwitchRow(
+                    title = stringResource(R.string.rotate_on_unlock),
+                    summary = stringResource(if (rotateOnUnlock) R.string.rotate_on_unlock_on else R.string.rotate_on_unlock_off),
+                    checked = rotateOnUnlock,
+                    onChange = {
+                        ReviewSettings.setRotateOnUnlock(context, it)
+                        rotateOnUnlock = it
+                    },
+                )
+                if (rotateOnUnlock) {
+                    if (!wallpaperActive) {
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            stringResource(R.string.rotate_on_unlock_needs_wallpaper),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    RotationSize()
+                }
+            }
 
             GroupHeader(stringResource(R.string.wallpaper_content))
             Column {
@@ -173,6 +199,12 @@ private fun SettingsScreen(onBack: () -> Unit) {
                         if (style.showAnswer) R.string.wallpaper_content_question_answer_summary
                         else R.string.wallpaper_content_question_summary
                     ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    stringResource(R.string.lock_screen_sensitive_tip),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -315,6 +347,30 @@ private fun WallpaperPreview(style: WallpaperStyle, background: Bitmap?, content
             native.scale(size.width / screenWidth, size.height / screenHeight)
             renderer.draw(native, screenWidth, screenHeight, style, background, content)
             native.restore()
+        }
+    }
+}
+
+/** Number of due cards "Change the card at every unlock" rotates through, with a warning above 20. */
+@Composable
+private fun RotationSize() {
+    val context = LocalContext.current
+    var size by remember { mutableIntStateOf(ReviewSettings.rotationSize(context)) }
+    Column {
+        Text(stringResource(R.string.rotation_size, size), style = MaterialTheme.typography.bodyMedium)
+        Slider(
+            value = size.toFloat(),
+            onValueChange = { size = it.roundToInt() },
+            onValueChangeFinished = { ReviewSettings.setRotationSize(context, size) },
+            valueRange = CardRotation.MIN_SIZE.toFloat()..CardRotation.MAX_SIZE.toFloat(),
+            steps = CardRotation.MAX_SIZE - CardRotation.MIN_SIZE - 1,
+        )
+        if (size > CardRotation.WARNING_ABOVE) {
+            Text(
+                stringResource(R.string.rotation_size_warning, CardRotation.WARNING_ABOVE),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+            )
         }
     }
 }

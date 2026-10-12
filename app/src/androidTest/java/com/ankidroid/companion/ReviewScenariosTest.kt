@@ -40,7 +40,7 @@ class ReviewScenariosTest {
         snapshot = AppDataSnapshot.take(context)
         // Start from a clean state: no card shown, no lock session, default settings.
         listOf(AnkiDroidHelper.STATE_DB, "com.ankidroid.companion.lock_session", "com.ankidroid.companion.card_review",
-            "com.ankidroid.companion.review_settings").forEach {
+            "com.ankidroid.companion.review_settings", "com.ankidroid.companion.review_timer").forEach {
             context.getSharedPreferences(it, Context.MODE_PRIVATE).edit().clear().commit()
         }
         notificationManager().cancel(Notifications.NOTIFICATION_ID)
@@ -141,6 +141,21 @@ class ReviewScenariosTest {
     }
 
     @Test
+    fun answeringACard_sendsTheTimeSinceTheCardWasShown() {
+        anki.deck(1, "Spanish", FakeAnkiDataSource.Card(10, question = "Hola"))
+        select(1)
+        start()
+
+        // Without the lock screen wallpaper (reset by the test run), the timer starts when the card is posted.
+        SystemClock.sleep(1_000)
+        press("ACTION_BUTTON_3")
+        waitUntil { anki.answers.isNotEmpty() }
+
+        val timeTaken = anki.timesTaken.single()
+        assertTrue("time taken: $timeTaken ms", timeTaken in 1_000L..10_000L)
+    }
+
+    @Test
     fun cardWithThreeButtons_goodSendsEase2() {
         anki.deck(1, "Spanish", FakeAnkiDataSource.Card(10, question = "Hola", buttonCount = 3))
         select(1)
@@ -191,6 +206,37 @@ class ReviewScenariosTest {
 
         press(Notifications.ACTION_SHOW_ANSWER)
         waitUntil { CardReview.isAnswerRevealed(context, card) }
+    }
+
+    @Test
+    fun rotationOnUnlock_goesThroughTheFirstCardsThenBackToTheFirstAfterAnAnswer() {
+        anki.deck(
+            1, "Spanish",
+            FakeAnkiDataSource.Card(10, question = "Hola"),
+            FakeAnkiDataSource.Card(11, question = "Adiós"),
+            FakeAnkiDataSource.Card(12, question = "Gracias"),
+        )
+        select(1)
+        ReviewSettings.setRotationSize(context, 2)
+        start()
+        assertEquals(10L, storedState().noteID)
+
+        // The rotation set is the first 2 due cards: 12 isn't in it.
+        rotate(expected = 11)
+        rotate(expected = 10)
+        rotate(expected = 11)
+
+        // Answering shows the first card again, and the next due card joins the set.
+        press("ACTION_BUTTON_3")
+        waitUntil { anki.answers.isNotEmpty() && storedState().noteID == 10L }
+        assertEquals(listOf(FakeAnkiDataSource.Answer(11, 0, ease = 3)), anki.answers)
+        rotate(expected = 12)
+    }
+
+    /** An unlock without an answer, as decided by the lock session. */
+    private fun rotate(expected: Long) {
+        CardStateController.rotateOnUnlock(context)
+        waitUntil { storedState().noteID == expected }
     }
 
     private fun select(vararg deckIds: Long) = DeckSelection.save(context, deckIds.toList())

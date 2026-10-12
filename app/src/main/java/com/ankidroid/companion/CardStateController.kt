@@ -51,9 +51,19 @@ object CardStateController {
         val anki = AnkiDroidHelper(context)
         val state = anki.storedState
         val deckIds = DeckSelection.load(context)
-        val next = if (deckIds.isNotEmpty()) anki.queryNextCard(deckIds) else null
         val displayed = state?.takeIf { it.hasCard() }
         val firstCard = state == null
+        // With "Change the card at every unlock", the displayed card may be any card of the rotation set.
+        val rotation = if (deckIds.isNotEmpty() && ReviewSettings.isRotating(context)) {
+            anki.queryRotation(deckIds, ReviewSettings.rotationSize(context))
+        } else {
+            null
+        }
+        val next = when {
+            rotation != null -> rotation.firstOrNull()
+            deckIds.isNotEmpty() -> anki.queryNextCard(deckIds)
+            else -> null
+        }
 
         val action = CardSync.decide(
             decksSelected = deckIds.isNotEmpty(),
@@ -64,6 +74,9 @@ object CardStateController {
             nextQuestion = next?.q.orEmpty(),
             notificationVisible = isNotificationVisible(context),
             notificationHidden = LockSession.isHidden(context),
+            displayedInRotation = displayed != null && rotation.orEmpty().any {
+                it.noteID == displayed.noteID && it.cardOrd == displayed.cardOrd && it.q == displayed.question
+            },
         )
         Log.i(TAG, "sync with AnkiDroid: $action")
         when (action) {
@@ -94,10 +107,45 @@ object CardStateController {
         }
     }
 
+    /**
+     * "Change the card at every unlock": the displayed card was seen but not answered during the lock session.
+     * Stores the next card of the rotation set in the background; it is posted at the next lock.
+     */
+    @JvmStatic
+    fun rotateOnUnlock(context: Context) {
+        val appContext = context.applicationContext
+        background.execute {
+            try {
+                rotate(appContext)
+            } catch (e: Exception) {
+                Log.e(TAG, "card rotation failed", e)
+            }
+        }
+    }
+
+    /** Shows the card after the displayed one in the rotation set, back to the first after the last. */
+    private fun rotate(context: Context) {
+        synchronized(lock) {
+            val anki = AnkiDroidHelper(context)
+            val displayed = anki.storedState?.takeIf { it.hasCard() } ?: return
+            val deckIds = DeckSelection.load(context)
+            if (deckIds.isEmpty()) return
+            val rotation = anki.queryRotation(deckIds, ReviewSettings.rotationSize(context))
+            val key = CardSync.CardKey(displayed.noteID, displayed.cardOrd)
+            val next = CardRotation.next(rotation, key) { CardSync.CardKey(it.noteID, it.cardOrd) } ?: return
+            Log.i(TAG, "unlocked without an answer: card ${rotation.indexOf(next) + 1} of ${rotation.size} in the rotation")
+            if (next.noteID != displayed.noteID || next.cardOrd != displayed.cardOrd) {
+                showCard(context, anki, next, silent = true)
+            }
+        }
+    }
+
     private fun showCard(context: Context, anki: AnkiDroidHelper, card: CardInfo, silent: Boolean) {
         Log.i(TAG, "next card found in deck ${card.deckId}")
         anki.storeState(card.deckId, card)
-        post(context, card, card.deckName, silent)
+        if (post(context, card, card.deckName, silent)) {
+            ReviewTimer.onCardShown(context, CardSync.CardKey(card.noteID, card.cardOrd))
+        }
     }
 
     private fun showDone(context: Context, anki: AnkiDroidHelper, deckIds: List<Long>, silent: Boolean) {
@@ -120,15 +168,18 @@ object CardStateController {
     /**
      * Posts the card (or "Bravo", when [card] is null) notification, unless it must wait for the next lock
      * (phone unlocked, or this session's card already answered): it is then posted by the next lock.
+     *
+     * @return whether the notification was posted
      */
-    private fun post(context: Context, card: CardInfo?, deckName: String, silent: Boolean) {
+    private fun post(context: Context, card: CardInfo?, deckName: String, silent: Boolean): Boolean {
         if (LockSession.mayPostNow(context)) {
             Notifications.create().showNotification(context, card, deckName, silent)
-        } else {
-            Log.i(TAG, "notification held back until the next lock")
-            LockSession.markHidden(context)
-            cancelNotification(context)
+            return true
         }
+        Log.i(TAG, "notification held back until the next lock")
+        LockSession.markHidden(context)
+        cancelNotification(context)
+        return false
     }
 
     private fun cancelNotification(context: Context) {
