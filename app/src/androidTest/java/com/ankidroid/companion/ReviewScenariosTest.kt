@@ -167,6 +167,20 @@ class ReviewScenariosTest {
     }
 
     @Test
+    fun unselectingEveryDeck_stopsReviewing() {
+        anki.deck(1, "Spanish", FakeAnkiDataSource.Card(10, question = "Hola"))
+        select(1)
+        start()
+        notificationTitle()
+
+        select()
+        assertEquals(CardSync.Action.STOP, CardStateController.syncWithAnkiDroid(context))
+
+        assertEquals(null, AnkiDroidHelper(context).storedState)
+        assertFalse(notificationManager().activeNotifications.any { it.id == Notifications.NOTIFICATION_ID })
+    }
+
+    @Test
     fun showAnswer_revealsTheAnswerOfTheDisplayedCard() {
         anki.deck(1, "Spanish", FakeAnkiDataSource.Card(10, question = "Hola"))
         select(1)
@@ -180,9 +194,9 @@ class ReviewScenariosTest {
 
     private fun select(vararg deckIds: Long) = DeckSelection.save(context, deckIds.toList())
 
-    /** "Start reviewing". */
+    /** Reviewing starts with the deck selection: the app runs the sync once the decks are selected. */
     private fun start() {
-        CardStateController.showNextCard(context, silent = true, notifyIfNone = true)
+        CardStateController.syncWithAnkiDroid(context)
     }
 
     /** A notification button: the broadcast goes through the real receiver, on the foreground queue like a tap. */

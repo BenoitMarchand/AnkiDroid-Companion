@@ -17,8 +17,8 @@ class PeriodicWorker(context: Context, params: WorkerParameters) : Worker(contex
 
     override fun doWork(): Result {
         Log.i("BackgroundService", "Periodic worker RAN")
-        if (AnkiDroidHelper(applicationContext).storedState == null) {
-            Log.i("BackgroundService", "Periodic worker - not started yet")
+        if (DeckSelection.load(applicationContext).isEmpty() && AnkiDroidHelper(applicationContext).storedState == null) {
+            Log.i("BackgroundService", "Periodic worker - no deck selected")
             return Result.success()
         }
         CardStateController.syncWithAnkiDroid(applicationContext, alertOnNewCards = true)

@@ -12,6 +12,7 @@ class CardSyncTest {
     private val cardB = CardKey(noteId = 2, ord = 0)
 
     private fun decide(
+        decksSelected: Boolean = true,
         started: Boolean = true,
         displayed: CardKey? = cardA,
         displayedQuestion: String = "Question A",
@@ -19,7 +20,7 @@ class CardSyncTest {
         nextQuestion: String = "Question A",
         visible: Boolean = true,
         hidden: Boolean = false,
-    ) = CardSync.decide(started, displayed, displayedQuestion, next, nextQuestion, visible, hidden)
+    ) = CardSync.decide(decksSelected, started, displayed, displayedQuestion, next, nextQuestion, visible, hidden)
 
     @Test
     fun nothingToDoWhenTheDisplayedCardIsStillNext() {
@@ -27,8 +28,24 @@ class CardSyncTest {
     }
 
     @Test
-    fun nothingBeforeStartReviewing() {
-        assertEquals(Action.NONE, decide(started = false, displayed = null, next = cardB, visible = false))
+    fun nothingWithoutASelectedDeck() {
+        assertEquals(Action.NONE, decide(decksSelected = false, started = false, displayed = null, next = null, visible = false))
+    }
+
+    @Test
+    fun selectingADeckShowsItsFirstCard() {
+        assertEquals(Action.SHOW_NEXT, decide(started = false, displayed = null, next = cardB, visible = false))
+    }
+
+    @Test
+    fun selectingADeckWithNothingDueShowsBravo() {
+        assertEquals(Action.SHOW_DONE, decide(started = false, displayed = null, next = null, visible = false))
+    }
+
+    @Test
+    fun unselectingEveryDeckStops() {
+        assertEquals(Action.STOP, decide(decksSelected = false))
+        assertEquals(Action.STOP, decide(decksSelected = false, displayed = null, displayedQuestion = ""))
     }
 
     @Test

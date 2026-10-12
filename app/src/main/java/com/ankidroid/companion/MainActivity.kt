@@ -43,7 +43,6 @@ class MainActivity : ComponentActivity() {
     private val decks = mutableStateListOf<DeckItem>()
     private val selectedDeckIds = mutableStateListOf<Long>()
     private var currentCard by mutableStateOf<CurrentCard>(CurrentCard.NotStarted)
-    private var isStarting by mutableStateOf(false)
     private var setupStatus by mutableStateOf(SetupStatus())
     private var severalInARow by mutableStateOf(false)
 
@@ -59,8 +58,8 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         Notifications.createChannel(this)
-        if (AnkiDroidHelper(this).storedState != null) {
-            // Reviewing was started before: make sure the periodic check uses the current interval.
+        if (DeckSelection.load(this).isNotEmpty()) {
+            // Reviewing is started: make sure the periodic check uses the current interval.
             PeriodicWorker.schedule(applicationContext)
         }
         requestMissingPermissions()
@@ -68,7 +67,6 @@ class MainActivity : ComponentActivity() {
         val actions = MainScreenActions(
             onToggleDeck = ::toggleDeck,
             onMoveDeck = ::moveDeck,
-            onStartReviewing = ::startReviewing,
             onGrantPermission = ::requestMissingPermissions,
             onRetry = ::refresh,
             onOpenWallpaperSettings = ::openWallpaperSettings,
@@ -87,7 +85,6 @@ class MainActivity : ComponentActivity() {
                     decks = decks,
                     selectedDeckIds = selectedDeckIds,
                     currentCard = currentCard,
-                    isStarting = isStarting,
                     lockOnlyWallpaper = Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE,
                     setup = setupStatus,
                     severalInARow = severalInARow,
@@ -190,27 +187,18 @@ class MainActivity : ComponentActivity() {
 
     private var deckChangeSync: Job? = null
 
-    /** Saves the selection and, once the user stops changing it, shows the new first card if it differs. */
+    /**
+     * Saves the selection and, once the user stops changing it, shows the new first card if it differs. Reviewing
+     * starts with the first selected deck, and stops when none is left.
+     */
     private fun onDeckSelectionChanged() {
         DeckSelection.save(this, selectedDeckIds.toList())
+        if (selectedDeckIds.isNotEmpty()) PeriodicWorker.schedule(applicationContext)
         deckChangeSync?.cancel()
         deckChangeSync = lifecycleScope.launch {
             delay(DECK_CHANGE_DEBOUNCE_MS)
             val action = withContext(Dispatchers.IO) { CardStateController.syncWithAnkiDroid(applicationContext) }
             if (action != CardSync.Action.NONE) refresh()
-        }
-    }
-
-    private fun startReviewing() {
-        isStarting = true
-        lifecycleScope.launch {
-            withContext(Dispatchers.IO) {
-                CardStateController.showNextCard(applicationContext, silent = false, notifyIfNone = true)
-            }
-            isStarting = false
-            // Start the periodic check when the first card is assigned.
-            PeriodicWorker.schedule(applicationContext)
-            refresh()
         }
     }
 
