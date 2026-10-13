@@ -27,7 +27,6 @@ import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -362,31 +361,6 @@ private fun CurrentCardCard(currentCard: CurrentCard, onlyWhileLocked: Boolean) 
             }
         }
     }
-}
-
-@Composable
-private fun WallpaperInstructionsDialog(lockOnlyWallpaper: Boolean, onDismiss: () -> Unit, onOpenWallpaperSettings: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.set_lock_wallpaper)) },
-        text = {
-            Text(
-                stringResource(
-                    if (lockOnlyWallpaper) R.string.set_lock_wallpaper_instructions
-                    else R.string.set_lock_wallpaper_instructions_both_screens
-                )
-            )
-        },
-        confirmButton = {
-            TextButton(onClick = {
-                onDismiss()
-                onOpenWallpaperSettings()
-            }) { Text(stringResource(R.string.open_wallpaper_settings)) }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(android.R.string.cancel)) }
-        },
-    )
 }
 
 /** What still needs to be set up; the checklist only shows the items that aren't done. */
