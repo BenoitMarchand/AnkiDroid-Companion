@@ -107,6 +107,9 @@ object LockSession {
         )
     }
 
+    /** Whether the phone is locked, as seen by the lock screen wallpaper. */
+    fun isLocked(context: Context): Boolean = prefs(context).getBoolean(KEY_LOCKED, false)
+
     /** Whether this session's card was answered and the next one waits for the next lock. */
     fun isWaitingForNextLock(context: Context): Boolean = prefs(context).getBoolean(KEY_WAITING, false)
 

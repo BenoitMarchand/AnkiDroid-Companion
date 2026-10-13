@@ -1,6 +1,6 @@
-# AnkiDroid Companion
+# Lockscreen Cards for AnkiDroid
 
-AnkiDroid Companion is an extension app for the AnkiDroid flashcard app. It lets you review your cards from a notification, and see the next card right on your lock screen, without opening AnkiDroid.
+Lockscreen Cards for AnkiDroid is an extension app for the AnkiDroid flashcard app. It lets you review your cards from a notification, and see the next card right on your lock screen, without opening AnkiDroid.
 
 ![](.github/output.gif)
 
@@ -9,7 +9,7 @@ AnkiDroid Companion is an extension app for the AnkiDroid flashcard app. It lets
 
 - **Review from a notification**: the current card's question is shown in a notification. Tap **Show answer** to see the answer and the Again / Hard / Good / Easy buttons. Only the buttons a card actually has are shown.
 
-- **Lock screen card**: set the "AnkiDroid Companion card" live wallpaper on your lock screen, and the question of the card to review is shown there. Your home screen wallpaper is not changed. The notification is fully visible on the lock screen, so you can answer without unlocking.
+- **Lock screen card**: set the "Lockscreen Cards for AnkiDroid" live wallpaper on your lock screen, and the question of the card to review is shown there. Your home screen wallpaper is not changed. The notification is fully visible on the lock screen, so you can answer without unlocking.
 
 - **Several decks, in your order**: select the decks to review and put them in order. Cards come from the first deck that has a card to review, then the next one, and so on. A deck includes its subdecks.
 
@@ -26,13 +26,13 @@ AnkiDroid Companion is an extension app for the AnkiDroid flashcard app. It lets
 
 1. **Install AnkiDroid** and make sure its API is enabled (AnkiDroid: Settings › Advanced › Enable AnkiDroid API).
 
-2. **Install AnkiDroid Companion** from the [releases](../../releases) page.
+2. **Install Lockscreen Cards for AnkiDroid** from the [releases](../../releases) page.
 
 3. **Open the app and grant access**: allow access to your AnkiDroid cards and allow notifications. The "Finish setting up" checklist on the main screen shows anything still missing.
 
 4. **Choose your decks**: tick decks in **All decks**, then order them under **Review order** with the arrows. Reviewing starts as soon as a deck is ticked: the first card shows up in a notification. Untick every deck to stop.
 
-5. **Optional, lock screen**: tap **Set lock screen wallpaper** and follow the instructions to choose the AnkiDroid Companion card for the **lock screen only** (on Android 8 to 13, live wallpapers apply to both screens). In **Settings** (gear icon), choose whether the lock screen shows the question only or the question and the answer (the notification then shows the answer buttons right away), and change its look.
+5. **Optional, lock screen**: tap **Set lock screen wallpaper** and follow the instructions to choose Lockscreen Cards for AnkiDroid for the **lock screen only** (on Android 8 to 13, live wallpapers apply to both screens). In **Settings** (gear icon), choose whether the lock screen shows the question only or the question and the answer (the notification then shows the answer buttons right away), and change its look.
 
 6. **When you're done**: when no selected deck has a card left, you'll see "Bravo! You've finished all cards in the selected decks." A new notification comes when it's time to study again.
 
@@ -41,7 +41,7 @@ AnkiDroid Companion is an extension app for the AnkiDroid flashcard app. It lets
 
 - **Simple cards only**: cards are shown as plain text. Images aren't shown, and cards with sound in the question are skipped.
 
-- **Changes made in AnkiDroid**: AnkiDroid doesn't notify other apps. The companion checks the displayed card when you open it, when you lock the phone (at most every 10 minutes), after a restart and every hour, and never answers a card that is no longer due.
+- **Changes made in AnkiDroid**: AnkiDroid doesn't notify other apps. The app checks the displayed card when you open it, when you lock the phone (at most every 10 minutes), after a restart and every hour, and never answers a card that is no longer due.
 
 - **Lock screen wallpaper**: a lock-screen-only live wallpaper needs Android 14 or newer, and some manufacturers' lock screens don't show third-party live wallpapers.
 
@@ -57,7 +57,7 @@ AnkiDroid Companion is an extension app for the AnkiDroid flashcard app. It lets
 
 ## Contributing
 
-Contributions to AnkiDroid Companion are welcome! If you have any ideas, feature requests, or bug reports, please feel free to open an issue or submit a pull request on GitHub.
+Contributions to Lockscreen Cards for AnkiDroid are welcome! If you have any ideas, feature requests, or bug reports, please feel free to open an issue or submit a pull request on GitHub.
 
 
 ## License

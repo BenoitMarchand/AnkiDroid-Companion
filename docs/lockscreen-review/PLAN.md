@@ -6,7 +6,7 @@ Status: **implemented, testing on devices** · Branch: `feature/lockscreen-revie
 
 ## Approach: live wallpaper
 
-The app provides a **live wallpaper** ("AnkiDroid Companion card") that the user selects in Android's own wallpaper settings, for the **lock screen only**. The wallpaper draws the current card's question.
+The app provides a **live wallpaper** ("Lockscreen Cards for AnkiDroid") that the user selects in Android's own wallpaper settings, for the **lock screen only**. The wallpaper draws the current card's question.
 
 Why not swap static wallpapers (`WallpaperManager.setBitmap`)?
 - Nothing has to be saved and restored, so the original wallpaper is never lost.
@@ -34,6 +34,7 @@ Limits:
 - [x] **Settings menu** (#35): gear icon on the main screen → one Settings screen (behavior, lock screen content, lock screen style). Lock screen content "question and answer": the answer under the question, after a thin divider, slightly smaller; the notification then shows the answer buttons right away (no "Show answer"). *(2026-10-12)*
 - [x] **Change the card at every unlock** (#45): option, off by default. When a lock session ends without an answer (a revealed answer still counts as unanswered) and the card was visible on the lock screen for at least 1.5 s, the next lock shows another due card. The app rotates through the first N displayable due cards of the selected decks in review order, filled from the next decks (N: default 10, 2–50, warning above 20). After an answer, the first card comes back and the next due card joins the set. Skipped cards stay due in AnkiDroid (its API can't skip without a review). Needs the wallpaper (unlock events). *(2026-10-12)*
 - [x] **Review time** (#47): the time sent to AnkiDroid with an answer (`TIME_TAKEN`) runs from when the card is seen (screen on on the lock screen, or a new card shown while it is) to the answer button; screen off or unlock without an answer clears it. Without the wallpaper it runs from the notification post. No timer for the answered card → 0, not a made-up duration. Previously it ran from when the card was fetched, often hours before (AnkiDroid caps it at the deck's maximum answer seconds). *(2026-10-12)*
+- [x] **Reviews at set times** (#49): an option, off by default, with an editable list of times of day (default 9:00, 13:00, 19:00). At each time a separate, high-importance notification shows "Time for a card" with the deck name and **Start**; Start shows the question and restarts the review timer, then "Show answer" and the answer buttons. Same card as the lock screen notification. A new time replaces an unanswered notification; nothing is sent when no card is due. Inexact alarms (no permission, may be a few minutes late), set again at boot, app update, clock or time zone change, app start and by the hourly worker. *(2026-10-12)*
 
 ## Phase 0: Spike on a real device
 
@@ -60,6 +61,7 @@ Limits:
 - [x] 2.6 One review per lock session, notification only while locked, option to review several in a row. Screen turned on again before the keyguard locked counts as an unlock. (#24)
 - [x] 2.7 Option "Change the card at every unlock", with the rotation size in Settings; the sync keeps a rotated card while it is in the rotation set. (#45)
 - [x] 2.8 Review time measured from when the card is seen to the answer (`ReviewTimer`). (#47)
+- [x] 2.9 Reviews at set times: `ReviewSchedule` (pure), `ScheduledReview` (alarm, notification ID 2, channel `scheduled_review`), times editable in Settings. An answer from it while unlocked doesn't show "Next card at your next unlock" on the hidden lock screen notification. (#49)
 
 ## Phase 3: Live wallpaper
 
@@ -110,3 +112,4 @@ Limits:
 - 2026-10-12 (#13, #30): device tests on fresh emulators, API 31 and API 34 (API 36 in CI): the button tests failed at random (5 s timeouts) because the button broadcasts waited in the background broadcast queue, busy after boot. With `FLAG_RECEIVER_FOREGROUND` on the button intents, all tests pass on both. API 26/29/33 images not installed yet.
 - 2026-10-11 (#23): a review screen opened by tapping the notification (`setShowWhenLocked`) was tried and dropped: with a tap action, the lock screen asks to unlock before opening anything, while without one, tapping expands the notification in place. The notification stays the way to review from the lock screen.
 - 2026-10-12: one review per unlock, seen on the phone: after the first answer, "Next card at your next unlock" stayed through the next lock and no notification came back. Likely cause: Android 14+ holds `SCREEN_ON` / `SCREEN_OFF` back while the app's process is cached (the lock-only wallpaper is hidden while unlocked) and only delivers the most recent one, so the `SCREEN_ON` replaced the `SCREEN_OFF` and the session never started. The session now also starts on `SCREEN_ON` with the keyguard locked, and when the engine becomes visible on the lock screen (the visibility comes straight from the system, not from a broadcast).
+- 2026-10-13: a Quick Settings tile (`TileService`) showing the card in a dialog (`showDialog()`, question, Show answer, answer buttons) was tried and dropped. On the test device (Android 17), tapping the tile on the lock screen shows nothing until the phone is unlocked, and reaching the tile takes 3 moves (swipe down, swipe to the tile page, tap), against none for the notification and the wallpaper. The notification stays the way to review from the lock screen.

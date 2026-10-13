@@ -3,7 +3,6 @@ package com.ankidroid.companion
 import android.Manifest
 import android.app.ActivityManager
 import android.app.NotificationManager
-import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -28,6 +27,7 @@ import com.ankidroid.companion.ui.MainScreen
 import com.ankidroid.companion.ui.MainScreenActions
 import com.ankidroid.companion.ui.ScreenState
 import com.ankidroid.companion.ui.SetupStatus
+import com.ankidroid.companion.ui.WallpaperSetup
 import com.ankidroid.companion.ui.theme.AnkiNotificationsTheme
 import com.ichi2.anki.api.AddContentApi
 import kotlinx.coroutines.Dispatchers
@@ -36,7 +36,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private const val ACTION_WALLPAPER_SETTINGS = "android.settings.WALLPAPER_SETTINGS"
 private const val DECK_CHANGE_DEBOUNCE_MS = 800L
 
 class MainActivity : ComponentActivity() {
@@ -62,6 +61,8 @@ class MainActivity : ComponentActivity() {
             // Reviewing is started: make sure the periodic check uses the current interval.
             PeriodicWorker.schedule(applicationContext)
         }
+        // Alarms are lost when the app is force-stopped: set the next scheduled review again.
+        ScheduledReview.schedule(applicationContext)
         requestMissingPermissions()
 
         val actions = MainScreenActions(
@@ -69,7 +70,7 @@ class MainActivity : ComponentActivity() {
             onMoveDeck = ::moveDeck,
             onGrantPermission = ::requestMissingPermissions,
             onRetry = ::refresh,
-            onOpenWallpaperSettings = ::openWallpaperSettings,
+            onOpenWallpaperSettings = { WallpaperSetup.openSettings(this) },
             onOpenSettings = { startActivity(Intent(this, SettingsActivity::class.java)) },
             onOpenNotificationSettings = ::openNotificationSettings,
             onOpenBatterySettings = ::openBatterySettings,
@@ -81,7 +82,7 @@ class MainActivity : ComponentActivity() {
                     decks = decks,
                     selectedDeckIds = selectedDeckIds,
                     currentCard = currentCard,
-                    lockOnlyWallpaper = Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE,
+                    lockOnlyWallpaper = WallpaperSetup.lockOnly,
                     setup = setupStatus,
                     actions = actions,
                 )
@@ -228,16 +229,5 @@ class MainActivity : ComponentActivity() {
     private fun openBatterySettings() {
         // The app's info page, where "App battery usage" is.
         startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", packageName, null)))
-    }
-
-    private fun openWallpaperSettings() {
-        // Only the system wallpaper app can apply a live wallpaper to the lock screen alone, so the user picks it
-        // there. ACTION_CHANGE_LIVE_WALLPAPER would apply it to both screens.
-        try {
-            // Public action, but its constant is hidden from the SDK. Opens "Wallpaper & style" on Pixel.
-            startActivity(Intent(ACTION_WALLPAPER_SETTINGS))
-        } catch (e: ActivityNotFoundException) {
-            startActivity(Intent.createChooser(Intent(Intent.ACTION_SET_WALLPAPER), getString(R.string.set_lock_wallpaper)))
-        }
     }
 }

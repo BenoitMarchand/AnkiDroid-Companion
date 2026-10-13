@@ -40,10 +40,12 @@ class ReviewScenariosTest {
         snapshot = AppDataSnapshot.take(context)
         // Start from a clean state: no card shown, no lock session, default settings.
         listOf(AnkiDroidHelper.STATE_DB, "com.ankidroid.companion.lock_session", "com.ankidroid.companion.card_review",
-            "com.ankidroid.companion.review_settings", "com.ankidroid.companion.review_timer").forEach {
+            "com.ankidroid.companion.review_settings", "com.ankidroid.companion.review_timer",
+            "com.ankidroid.companion.scheduled_review", "com.ankidroid.companion.scheduled_review_settings").forEach {
             context.getSharedPreferences(it, Context.MODE_PRIVATE).edit().clear().commit()
         }
         notificationManager().cancel(Notifications.NOTIFICATION_ID)
+        notificationManager().cancel(ScheduledReview.NOTIFICATION_ID)
         AnkiData.override = anki
     }
 
@@ -51,6 +53,9 @@ class ReviewScenariosTest {
     fun tearDown() {
         AnkiData.override = null
         snapshot.restore()
+        notificationManager().cancel(ScheduledReview.NOTIFICATION_ID)
+        // Back to the alarm of the restored settings.
+        ScheduledReview.schedule(context)
     }
 
     @Test
@@ -231,6 +236,86 @@ class ReviewScenariosTest {
         waitUntil { anki.answers.isNotEmpty() && storedState().noteID == 10L }
         assertEquals(listOf(FakeAnkiDataSource.Answer(11, 0, ease = 3)), anki.answers)
         rotate(expected = 12)
+    }
+
+    @Test
+    fun scheduledReview_startShowsTheQuestionAndTheAnswerIsTimedFromStart() {
+        anki.deck(
+            1, "Spanish",
+            FakeAnkiDataSource.Card(10, question = "Hola"),
+            FakeAnkiDataSource.Card(11, question = "Adiós"),
+        )
+        select(1)
+        start()
+        ScheduledReviewSettings.setEnabled(context, true)
+
+        ScheduledReview.onAlarm(context)
+        val prompt = scheduledNotification()
+        assertEquals("Anki • Spanish", prompt.extras.getCharSequence(Notification.EXTRA_TITLE)?.toString())
+        assertEquals(context.getString(R.string.start), prompt.actions.single().title.toString())
+
+        // The lock screen notification's timer runs since the card was posted: Start restarts it.
+        SystemClock.sleep(2_000)
+        press(ScheduledReview.ACTION_START)
+        waitUntil { scheduledNotificationOrNull()?.actions.isNullOrEmpty() }
+        SystemClock.sleep(1_000)
+        press(ScheduledReview.ACTION_SHOW_ANSWER)
+        val card = storedState().toCardInfo()
+        waitUntil { CardReview.isAnswerRevealed(context, card) }
+
+        press(ScheduledReview.ACTION_BUTTON_PREFIX + 3)
+        waitUntil { anki.answers.isNotEmpty() && storedState().noteID == 11L }
+        assertEquals(listOf(FakeAnkiDataSource.Answer(10, 0, ease = 3)), anki.answers)
+        val timeTaken = anki.timesTaken.single()
+        assertTrue("time taken: $timeTaken ms", timeTaken in 1_000L until 2_900L)
+        waitUntil { scheduledNotificationOrNull() == null }
+        // The lock screen notification moved to the next card too.
+        assertEquals("Anki • Spanish", notificationTitle())
+    }
+
+    @Test
+    fun scheduledReview_withoutCardToReview_isNotSent() {
+        anki.deck(1, "Spanish")
+        select(1)
+        start()
+        ScheduledReviewSettings.setEnabled(context, true)
+
+        ScheduledReview.onAlarm(context)
+
+        SystemClock.sleep(500)
+        assertEquals(null, scheduledNotificationOrNull())
+    }
+
+    @Test
+    fun answeringFromTheLockScreenNotification_removesAStartedScheduledReview() {
+        anki.deck(
+            1, "Spanish",
+            FakeAnkiDataSource.Card(10, question = "Hola"),
+            FakeAnkiDataSource.Card(11, question = "Adiós"),
+        )
+        select(1)
+        start()
+        ScheduledReviewSettings.setEnabled(context, true)
+        ScheduledReview.onAlarm(context)
+        ScheduledReview.start(context)
+        scheduledNotification()
+
+        press("ACTION_BUTTON_3")
+        waitUntil { anki.answers.isNotEmpty() && storedState().noteID == 11L }
+
+        waitUntil { scheduledNotificationOrNull() == null }
+    }
+
+    private fun scheduledNotificationOrNull(): Notification? =
+        notificationManager().activeNotifications.firstOrNull { it.id == ScheduledReview.NOTIFICATION_ID }?.notification
+
+    private fun scheduledNotification(): Notification {
+        var notification: Notification? = null
+        waitUntil {
+            notification = scheduledNotificationOrNull()
+            notification != null
+        }
+        return notification!!
     }
 
     /** An unlock without an answer, as decided by the lock session. */

@@ -17,6 +17,8 @@ class PeriodicWorker(context: Context, params: WorkerParameters) : Worker(contex
 
     override fun doWork(): Result {
         Log.i("BackgroundService", "Periodic worker RAN")
+        // A safety net: alarms can be lost (app force-stopped).
+        ScheduledReview.schedule(applicationContext)
         if (DeckSelection.load(applicationContext).isEmpty() && AnkiDroidHelper(applicationContext).storedState == null) {
             Log.i("BackgroundService", "Periodic worker - no deck selected")
             return Result.success()

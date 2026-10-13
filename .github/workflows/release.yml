@@ -96,6 +96,6 @@ jobs:
         GH_TOKEN: ${{ github.token }}
       run: |
         VERSION="${{ steps.version.outputs.version }}"
-        APK="AnkiDroid-Companion-v$VERSION.apk"
+        APK="Lockscreen-Cards-for-AnkiDroid-v$VERSION.apk"
         cp ${{ env.main_project_module }}/build/outputs/apk/debug/app-debug.apk "$APK"
         gh release create "v$VERSION" "$APK" --title "v$VERSION" --generate-notes --target main
