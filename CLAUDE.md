@@ -18,7 +18,7 @@ Lockscreen Cards for AnkiDroid is a small Android app that lets the user review 
 - Windows: `.\gradlew.bat assembleDebug` · Unix: `./gradlew assembleDebug`
 - Full build + lint + unit tests: `./gradlew build`
 - Unit tests: `./gradlew test` (plain JVM, in `app/src/test`: keep testable logic free of Android classes) · Device tests: `scripts/device-tests.ps1` (VS Code task "Android: run device tests"): end-to-end scenarios in `app/src/androidTest` with `FakeAnkiDataSource` (installed through `AnkiData.override`), each saving and restoring the app's data (`AppDataSnapshot`). Uses a running emulator or starts one (`-Avd`); a phone only with `-Serial`, because `am instrument` force-stops the app and Android then resets the card wallpaper. Never use `connectedAndroidTest` on a phone (it uninstalls the app); CI uses it on a fresh emulator.
-- Release check: `scripts/release.ps1` (build + unit tests + device tests, then `gh workflow run release.yml`). Shared script helpers: `scripts/android-env.ps1`.
+- Release check: `scripts/release.ps1` (build + unit tests + device tests, then `gh workflow run release.yml`; a release candidate by default, `-Final` to release the validated candidate). Shared script helpers: `scripts/android-env.ps1`.
 - Install on a connected device: `./gradlew installDebug`, or on Windows `scripts/install.ps1` (finds the SDK and a JDK 17+, detects the device, installs and launches; `-Wait`, `-Serial`, `-Logcat`, `-NoLaunch`). Also available in VS Code as the default build task (Ctrl+Shift+B).
 - APK output: `app/build/outputs/apk/debug/app-debug.apk`
 - `minSdk 26`, `targetSdk 34`, `compileSdk 34`. Anything newer than API 26 must be guarded with `Build.VERSION.SDK_INT` checks.
@@ -27,9 +27,9 @@ Lockscreen Cards for AnkiDroid is a small Android app that lets the user review 
 ## Branches, versions and releases
 
 - `develop` is the integration branch: feature branches are merged into it through pull requests (open PRs against `develop`, not `main`). `main` only receives releases.
-- Version: `versionName` is `MAJOR.MINOR.PATCH` in `app/build.gradle.kts`, managed by `scripts/version.py` (`show`, `patch`, `minor`, `major`; each bump also increases `versionCode`). Don't edit the version by hand.
-- `.github/workflows/integration.yml`: each PR merged into `develop` increases the **patch** digit (bot commit on `develop`).
-- `.github/workflows/release.yml`: started **on request only** (`gh workflow run release.yml`, or Actions › Release): increases the **minor** digit, builds, merges `develop` into `main`, tags `vX.Y.0` and publishes the **debug** APK as a GitHub release. Issues closed by "Closes #N" in commits are only closed when they reach `main`, i.e. at release.
+- Version: `versionName` is `MAJOR.MINOR.PATCH`, with `-rcN` on a release candidate, in `app/build.gradle.kts`, managed by `scripts/version.py` (`show`, `patch`, `rc`, `final`, `minor`, `major`; each bump also increases `versionCode`). Don't edit the version by hand.
+- `.github/workflows/integration.yml`: each PR merged into `develop` increases the **patch** digit (bot commit on `develop`); on a release candidate it adds `.N` after it instead (`0.4.0-rc1.1`).
+- `.github/workflows/release.yml`: started **on request only** (`gh workflow run release.yml -f stage=rc|final`, or Actions › Release), in two stages. `rc` (default): a **release candidate** for users to validate: the next **minor** version with `-rc1` (`0.3.3` → `0.4.0-rc1`; again → `-rc2`), committed and tagged `vX.Y.0-rcN` on `develop`, the **debug** APK published as a GitHub **pre-release**; `main` is not changed. `final`: once validated, drops the suffix (`0.4.0-rc2` → `0.4.0`), merges `develop` into `main`, tags `vX.Y.0` and publishes the latest GitHub release. Issues closed by "Closes #N" in commits are only closed when they reach `main`, i.e. at the final release.
 - `.github/workflows/develop.yml`: builds (lint + unit tests) and uploads a debug APK on pushes to `develop` and on pull requests to `develop` or `main`; on pull requests it also runs the device tests on an emulator.
 - `release.yml` only tags when the device tests pass on an emulator.
 - After a merge or a release, pull `develop` before branching: the bot commits the version bump there.
