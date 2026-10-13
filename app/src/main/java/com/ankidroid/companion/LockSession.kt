@@ -2,12 +2,16 @@ package com.ankidroid.companion
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.provider.Settings
 
 /**
  * Tracks a lock session (from locking the phone to unlocking it). With the lock screen wallpaper set, the card
  * notification is only visible while the phone is locked: it is removed at every unlock and posted again at the
  * next lock. By default, one card is reviewed per session: after the answer, the next card waits for the next
  * lock ("Next card at your next unlock"), unless "Review several cards in a row" is on.
+ *
+ * With "Open after unlock" ([ReviewSettings.ReviewMode]), there is no card notification: the card is only on the
+ * wallpaper, and the review screen opens when the phone is unlocked.
  *
  * Driven by the lock screen wallpaper service, the component that receives the screen events. Without the
  * wallpaper there are no screen events: the notification stays posted and cards follow each other, as before.
@@ -32,9 +36,19 @@ object LockSession {
     fun afterAnswer(wallpaperActive: Boolean, severalInARow: Boolean): AfterAnswer =
         if (wallpaperActive && !severalInARow) AfterAnswer.WAIT_FOR_NEXT_LOCK else AfterAnswer.SHOW_NEXT
 
-    /** Whether the card notification may be posted now; otherwise it waits for the next lock. */
-    fun mayPost(wallpaperActive: Boolean, locked: Boolean, waitingForNextLock: Boolean): Boolean =
-        !wallpaperActive || (locked && !waitingForNextLock)
+    /**
+     * Whether the card notification may be posted now; otherwise it waits for the next lock. With "Open after
+     * unlock" ([openAfterUnlock], which needs the wallpaper) it is never posted.
+     */
+    fun mayPost(wallpaperActive: Boolean, locked: Boolean, waitingForNextLock: Boolean, openAfterUnlock: Boolean = false): Boolean =
+        !wallpaperActive || (!openAfterUnlock && locked && !waitingForNextLock)
+
+    /**
+     * Whether to open the review screen at unlock ("Open after unlock"): once per unlock (the unlock is reported
+     * several times), when there is a card and this session's review isn't done.
+     */
+    fun shouldOpenReview(openAfterUnlock: Boolean, wasLocked: Boolean, hasCard: Boolean, waitingForNextLock: Boolean): Boolean =
+        openAfterUnlock && wasLocked && hasCard && !waitingForNextLock
 
     /** Whether to remove the notification at unlock: always, when there is something displayed. */
     fun shouldHideOnUnlock(started: Boolean) = started
@@ -70,21 +84,30 @@ object LockSession {
         val hide: Boolean,
         /** Change the card ("Change the card at every unlock"): it is posted at the next lock. */
         val rotate: Boolean,
+        /** First report of this unlock: the phone was locked until now. */
+        val wasLocked: Boolean,
+        /** Open the review screen ("Open after unlock"). */
+        val openReview: Boolean,
     )
 
-    /** The phone was unlocked. */
-    fun onUnlocked(context: Context, started: Boolean, now: Long = System.currentTimeMillis()): Unlock {
+    /** The phone was unlocked. [hasCard]: a card is displayed (not "Bravo"). */
+    fun onUnlocked(context: Context, started: Boolean, hasCard: Boolean, now: Long = System.currentTimeMillis()): Unlock {
         val prefs = prefs(context)
         val hide = shouldHideOnUnlock(started)
+        val wasLocked = prefs.getBoolean(KEY_LOCKED, false)
+        val openAfterUnlock = ReviewSettings.opensAfterUnlock(context)
+        val openReview = shouldOpenReview(openAfterUnlock, wasLocked, hasCard, prefs.getBoolean(KEY_WAITING, false))
         val rotate = CardRotation.shouldRotate(
-            enabled = started && ReviewSettings.rotateOnUnlock(context),
-            wasLocked = prefs.getBoolean(KEY_LOCKED, false),
+            // With "Open after unlock", the card is reviewed after the unlock: the review screen rotates it if
+            // it is closed without an answer.
+            enabled = started && ReviewSettings.rotateOnUnlock(context) && !openAfterUnlock,
+            wasLocked = wasLocked,
             answered = prefs.getBoolean(KEY_ANSWERED, false),
             visibleSince = prefs.getLong(KEY_VISIBLE_SINCE, 0),
             now = now,
         )
         prefs.edit().putBoolean(KEY_LOCKED, false).putBoolean(KEY_HIDDEN, hide).apply()
-        return Unlock(hide, rotate)
+        return Unlock(hide, rotate, wasLocked, openReview)
     }
 
     /** A card was answered from the notification. Returns what to do next. */
@@ -104,6 +127,8 @@ object LockSession {
             wallpaperActive = CardWallpaperService.isActive(context),
             locked = prefs.getBoolean(KEY_LOCKED, false),
             waitingForNextLock = prefs.getBoolean(KEY_WAITING, false),
+            openAfterUnlock = ReviewSettings.reviewMode(context) == ReviewSettings.ReviewMode.OPEN_AFTER_UNLOCK &&
+                ReviewSettings.canOpenAfterUnlock(context),
         )
     }
 
@@ -135,6 +160,41 @@ object ReviewSettings {
     private const val KEY_SEVERAL_IN_A_ROW = "several_in_a_row"
     private const val KEY_ROTATE_ON_UNLOCK = "rotate_on_unlock"
     private const val KEY_ROTATION_SIZE = "rotation_size"
+    private const val KEY_REVIEW_MODE = "review_mode"
+
+    /** How the card is reviewed from the lock screen. */
+    enum class ReviewMode {
+        /** The lock screen notification, expanded in place, without unlocking. */
+        NOTIFICATION,
+
+        /** No notification: the card is on the wallpaper, and the review screen opens at unlock. */
+        OPEN_AFTER_UNLOCK,
+    }
+
+    /** "How to review": the notification by default. */
+    fun reviewMode(context: Context): ReviewMode =
+        prefs(context).getString(KEY_REVIEW_MODE, null)
+            ?.let { name -> ReviewMode.entries.firstOrNull { it.name == name } }
+            ?: ReviewMode.NOTIFICATION
+
+    fun setReviewMode(context: Context, mode: ReviewMode) {
+        prefs(context).edit().putString(KEY_REVIEW_MODE, mode.name).apply()
+    }
+
+    /**
+     * Whether the review screen opens at unlock: "Open after unlock" is chosen, the wallpaper gives the unlock
+     * events, and "Display over other apps" is allowed. Otherwise the notification is used.
+     */
+    fun opensAfterUnlock(context: Context): Boolean =
+        reviewMode(context) == ReviewMode.OPEN_AFTER_UNLOCK && CardWallpaperService.isActive(context) &&
+            canOpenAfterUnlock(context)
+
+    /**
+     * Whether the review screen may be opened from the background: Android only lets the wallpaper start it with
+     * "Display over other apps" (the wallpaper doesn't count as a visible window).
+     */
+    fun canOpenAfterUnlock(context: Context): Boolean = Settings.canDrawOverlays(context)
+
 
     /** "Review several cards in a row": off by default, one card per lock session. */
     fun severalInARow(context: Context): Boolean = prefs(context).getBoolean(KEY_SEVERAL_IN_A_ROW, false)

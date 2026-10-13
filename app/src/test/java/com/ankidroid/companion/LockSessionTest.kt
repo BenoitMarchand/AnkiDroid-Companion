@@ -45,4 +45,33 @@ class LockSessionTest {
         assertTrue(LockSession.shouldHideOnUnlock(started = true))
         assertFalse(LockSession.shouldHideOnUnlock(started = false))
     }
+
+    @Test
+    fun openAfterUnlockNeverPostsTheNotification() {
+        assertFalse(LockSession.mayPost(wallpaperActive = true, locked = true, waitingForNextLock = false, openAfterUnlock = true))
+        assertFalse(LockSession.mayPost(wallpaperActive = true, locked = false, waitingForNextLock = false, openAfterUnlock = true))
+    }
+
+    @Test
+    fun openAfterUnlockWithoutTheWallpaperFallsBackToTheNotification() {
+        assertTrue(LockSession.mayPost(wallpaperActive = false, locked = false, waitingForNextLock = false, openAfterUnlock = true))
+    }
+
+    @Test
+    fun reviewScreenOpensOnceAtUnlockWithACard() {
+        assertTrue(LockSession.shouldOpenReview(openAfterUnlock = true, wasLocked = true, hasCard = true, waitingForNextLock = false))
+        // The same unlock reported again (USER_PRESENT, then the wallpaper hidden).
+        assertFalse(LockSession.shouldOpenReview(openAfterUnlock = true, wasLocked = false, hasCard = true, waitingForNextLock = false))
+    }
+
+    @Test
+    fun reviewScreenDoesNotOpenWithoutACardOrOnceTheSessionsCardIsAnswered() {
+        assertFalse(LockSession.shouldOpenReview(openAfterUnlock = true, wasLocked = true, hasCard = false, waitingForNextLock = false))
+        assertFalse(LockSession.shouldOpenReview(openAfterUnlock = true, wasLocked = true, hasCard = true, waitingForNextLock = true))
+    }
+
+    @Test
+    fun reviewScreenDoesNotOpenInNotificationMode() {
+        assertFalse(LockSession.shouldOpenReview(openAfterUnlock = false, wasLocked = true, hasCard = true, waitingForNextLock = false))
+    }
 }
