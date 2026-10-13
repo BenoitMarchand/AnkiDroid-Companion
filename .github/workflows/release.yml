@@ -1,10 +1,20 @@
 name: Release
 
-# Started on request (Actions tab > Release > Run workflow, or `gh workflow run release.yml`):
-# increases the 2nd digit of the version on develop, merges develop into main, tags vX.Y.0 and publishes
-# the APK as a GitHub release. Nothing is tagged unless the device tests pass on an emulator.
+# Started on request (Actions tab > Release > Run workflow, or `gh workflow run release.yml -f stage=...`), in two stages:
+# - "rc" (default): a release candidate for users to validate. Sets the version on develop to the next minor
+#   version with "-rc1" (or the next candidate, -rc2, -rc3...), tags vX.Y.0-rcN on develop and publishes the APK
+#   as a GitHub pre-release. main is not changed.
+# - "final": once the candidate is validated, drops the "-rcN" suffix, merges develop into main, tags vX.Y.0
+#   and publishes the APK as the latest GitHub release.
+# Nothing is tagged unless the device tests pass on an emulator.
 on:
   workflow_dispatch:
+    inputs:
+      stage:
+        description: 'rc = new release candidate (pre-release), final = release the validated candidate'
+        type: choice
+        options: [rc, final]
+        default: rc
 
 env:
   # The name of the main module repository
@@ -69,9 +79,9 @@ jobs:
         java-version: '17'
         cache: 'gradle'
 
-    - name: Increase the minor version
+    - name: Set the version
       id: version
-      run: python3 scripts/version.py minor
+      run: python3 scripts/version.py ${{ inputs.stage }}
 
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
@@ -80,17 +90,23 @@ jobs:
     - name: Build with Gradle (lint and unit tests)
       run: ./gradlew build assembleDebug
 
-    - name: Commit, merge into main and tag
+    - name: Commit and tag (and merge into main for a final release)
       run: |
         VERSION="${{ steps.version.outputs.version }}"
         git config user.name "github-actions[bot]"
         git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
         git commit -am "Release $VERSION"
-        git checkout main
-        git merge --no-ff develop -m "Release $VERSION"
-        git tag "v$VERSION"
-        git push origin develop main "v$VERSION"
+        if [ "${{ inputs.stage }}" = "final" ]; then
+          git checkout main
+          git merge --no-ff develop -m "Release $VERSION"
+          git tag "v$VERSION"
+          git push origin develop main "v$VERSION"
+        else
+          git tag "v$VERSION"
+          git push origin develop "v$VERSION"
+        fi
 
+    # Release notes since the last final release, so a candidate and its release list everything new.
     - name: Publish the release with the APK
       env:
         GH_TOKEN: ${{ github.token }}
@@ -98,4 +114,12 @@ jobs:
         VERSION="${{ steps.version.outputs.version }}"
         APK="Lockscreen-Cards-for-AnkiDroid-v$VERSION.apk"
         cp ${{ env.main_project_module }}/build/outputs/apk/debug/app-debug.apk "$APK"
-        gh release create "v$VERSION" "$APK" --title "v$VERSION" --generate-notes --target main
+        PREVIOUS=$(git tag --list 'v*' --sort=-v:refname | grep -v -e '-rc' -e "^v$VERSION\$" | head -n 1 || true)
+        ARGS=(--title "v$VERSION" --generate-notes)
+        if [ -n "$PREVIOUS" ]; then ARGS+=(--notes-start-tag "$PREVIOUS"); fi
+        if [ "${{ steps.version.outputs.prerelease }}" = "true" ]; then
+          ARGS+=(--prerelease --target develop)
+        else
+          ARGS+=(--latest --target main)
+        fi
+        gh release create "v$VERSION" "$APK" "${ARGS[@]}"
