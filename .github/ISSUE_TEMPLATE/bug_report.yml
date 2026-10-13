@@ -1,0 +1,42 @@
+name: Report an issue
+description: Something doesn't work as expected in AnkiDroid Companion.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! When opened from the app (Settings › Report an issue), the device and version fields below are already filled in.
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: What you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Select a deck
+        2. Lock the phone
+        3. ...
+  - type: input
+    id: device
+    attributes:
+      label: Phone
+      placeholder: Manufacturer and model
+  - type: input
+    id: android
+    attributes:
+      label: Android version
+  - type: input
+    id: app-version
+    attributes:
+      label: AnkiDroid Companion version
+    validations:
+      required: true
+  - type: input
+    id: ankidroid-version
+    attributes:
+      label: AnkiDroid version
