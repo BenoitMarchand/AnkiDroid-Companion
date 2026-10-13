@@ -29,7 +29,7 @@ import androidx.core.content.ContextCompat
  * keyguard is shown and the background otherwise.
  *
  * The service also drives [LockSession] (an unused notification is removed on unlock and posted again at the
- * next lock). The screen events are received once per service, not per engine: the system can run several
+ * next lock), and opens the review screen at unlock with "Open after unlock". The screen events are received once per service, not per engine: the system can run several
  * engines at the same time (a preview next to the real one, or an old engine not destroyed yet), and each
  * event must be handled only once.
  */
@@ -85,8 +85,9 @@ class CardWallpaperService : WallpaperService() {
     override fun onCreateEngine(): Engine = CardEngine()
 
     private fun onLocked() {
-        if (LockSession.onLocked(this)) {
-            // The notification was removed at the last unlock (or held back): show the current card again.
+        // The notification was removed at the last unlock (or held back): show the current card again, unless it
+        // must not be posted ("Open after unlock").
+        if (LockSession.onLocked(this) && LockSession.mayPostNow(this)) {
             val state = AnkiDroidHelper(this).storedState
             if (state != null) {
                 Log.i(TAG, "posting the card notification again")
@@ -105,10 +106,11 @@ class CardWallpaperService : WallpaperService() {
     }
 
     private fun onUnlocked() {
-        // Unlocked without an answer: the time spent looking at the card doesn't count.
-        ReviewTimer.clear(this)
-        val started = AnkiDroidHelper(this).storedState != null
-        val unlock = LockSession.onUnlocked(this, started)
+        val state = AnkiDroidHelper(this).storedState
+        val unlock = LockSession.onUnlocked(this, started = state != null, hasCard = state?.hasCard() == true)
+        // Unlocked without an answer: the time spent looking at the card doesn't count. Only at the first report of
+        // the unlock: later ones must not clear the timer the review screen started.
+        if (unlock.wasLocked) ReviewTimer.clear(this)
         if (unlock.hide) {
             // The notification is only visible while the phone is locked.
             Log.i(TAG, "unlocked, removing the notification")
@@ -116,6 +118,17 @@ class CardWallpaperService : WallpaperService() {
         }
         // "Change the card at every unlock": the card was seen but not answered, show another one at the next lock.
         if (unlock.rotate) CardStateController.rotateOnUnlock(this)
+        if (unlock.openReview) openReviewScreen()
+    }
+
+    /** "Open after unlock": shows the review screen with the card of the lock screen. */
+    private fun openReviewScreen() {
+        Log.i(TAG, "unlocked, opening the review screen")
+        try {
+            startActivity(ReviewActivity.intent(this))
+        } catch (e: Exception) {
+            Log.e(TAG, "couldn't open the review screen", e)
+        }
     }
 
     private fun isInteractive(): Boolean = (getSystemService(Context.POWER_SERVICE) as PowerManager).isInteractive

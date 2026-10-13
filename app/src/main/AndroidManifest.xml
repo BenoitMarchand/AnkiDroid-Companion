@@ -4,6 +4,8 @@
 
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- "Open after unlock": lets the lock screen wallpaper open the review screen (background activity start). -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
     <uses-feature android:name="android.software.live_wallpaper" android:required="false" />
     <application
@@ -30,6 +32,14 @@
             android:name=".SettingsActivity"
             android:exported="true"
             android:label="@string/settings_title"
+            android:theme="@style/Theme.AnkiNotifications" />
+        <!-- "Open after unlock": opened by the lock screen wallpaper when the phone is unlocked. -->
+        <activity
+            android:name=".ReviewActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTop"
+            android:taskAffinity=""
             android:theme="@style/Theme.AnkiNotifications" />
         <receiver android:name=".NotificationReceiver"/>
         <receiver

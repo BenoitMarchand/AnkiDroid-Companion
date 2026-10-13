@@ -19,6 +19,8 @@
     <string name="rotation_size">Rotate through the first %1$d due cards</string>
     <string name="rotation_size_warning">Above %1$d cards, the most urgent cards come back less often, and checking the card at each lock takes longer.</string>
     <string name="success">Success</string>
+    <string name="review_close">Close</string>
+    <string name="review_no_card">No card to review. Open Lockscreen Cards for AnkiDroid and select a deck.</string>
 
     <!-- Main screen -->
     <string name="current_card">Current card</string>
@@ -59,6 +61,16 @@
     <string name="wallpaper_content_question_answer">Question and answer</string>
     <string name="wallpaper_content_question_summary">The lock screen shows the question. Tap Show answer in the notification to see the answer.</string>
     <string name="wallpaper_content_question_answer_summary">The lock screen shows the answer under the question, and the notification shows the answer buttons right away.</string>
+    <string name="wallpaper_content_question_summary_review_screen">The lock screen shows the question. Tap Show answer in the review screen to see the answer.</string>
+    <string name="wallpaper_content_question_answer_summary_review_screen">The lock screen shows the answer under the question, and the review screen shows the answer buttons right away.</string>
+    <string name="review_mode">How to review</string>
+    <string name="review_mode_notification">Notification</string>
+    <string name="review_mode_open_after_unlock">Open after unlock</string>
+    <string name="review_mode_notification_summary">Review from the notification on the lock screen, without unlocking.</string>
+    <string name="review_mode_open_after_unlock_summary">No notification: the card is on the lock screen, and the review screen opens when you unlock your phone.</string>
+    <string name="review_mode_needs_overlay">Android only lets the app open the review screen with the \"Display over other apps\" permission. Until it is allowed, the notification is used.</string>
+    <string name="review_mode_allow_overlay">Allow</string>
+    <string name="review_mode_needs_wallpaper">Works once the card wallpaper is set on the lock screen. Until then, the notification is used.</string>
     <string name="wallpaper_settings_title">Lock screen style</string>
     <string name="wallpaper_status_active">The card wallpaper is set on the lock screen.</string>
     <string name="wallpaper_status_missing">The card wallpaper is not set on the lock screen</string>

@@ -7,6 +7,11 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.SystemClock
+import androidx.compose.ui.test.junit4.createEmptyComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.After
@@ -14,6 +19,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -30,6 +36,9 @@ class ReviewScenariosTest {
     private val context: Context = InstrumentationRegistry.getInstrumentation().targetContext
     private val anki = FakeAnkiDataSource()
     private lateinit var snapshot: AppDataSnapshot
+
+    @get:Rule
+    val compose = createEmptyComposeRule()
 
     @Before
     fun setUp() {
@@ -304,6 +313,47 @@ class ReviewScenariosTest {
         waitUntil { anki.answers.isNotEmpty() && storedState().noteID == 11L }
 
         waitUntil { scheduledNotificationOrNull() == null }
+    }
+
+    @Test
+    fun openAfterUnlock_withoutTheWallpaper_stillUsesTheNotification() {
+        // The test run resets the lock screen card wallpaper: without it, the unlock can't be detected.
+        anki.deck(1, "Spanish", FakeAnkiDataSource.Card(10, question = "Hola"))
+        select(1)
+        ReviewSettings.setReviewMode(context, ReviewSettings.ReviewMode.OPEN_AFTER_UNLOCK)
+
+        start()
+
+        assertFalse(ReviewSettings.opensAfterUnlock(context))
+        assertEquals("Anki • Spanish", notificationTitle())
+    }
+
+    @Test
+    fun reviewScreen_showAnswerThenAnswer_sendsTheEaseAndShowsTheNextCard() {
+        anki.deck(
+            1, "Spanish",
+            FakeAnkiDataSource.Card(10, question = "Hola", answer = "Hello"),
+            FakeAnkiDataSource.Card(11, question = "Adiós"),
+        )
+        select(1)
+        start()
+
+        ActivityScenario.launch<ReviewActivity>(ReviewActivity.intent(context)).use {
+            waitForText("Hola")
+            compose.onNodeWithText(context.getString(R.string.show_answer)).performClick()
+            waitForText("Hello")
+            compose.onNodeWithText(context.getString(R.string.good)).performClick()
+
+            waitUntil { anki.answers.isNotEmpty() }
+            assertEquals(listOf(FakeAnkiDataSource.Answer(10, 0, ease = 3)), anki.answers)
+            // Without the wallpaper there is no lock session: the next card comes right away.
+            waitForText("Adiós")
+        }
+    }
+
+    /** The review screen loads its card off the main thread: wait for it to show up. */
+    private fun waitForText(text: String) {
+        compose.waitUntil(5_000) { compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() }
     }
 
     private fun scheduledNotificationOrNull(): Notification? =

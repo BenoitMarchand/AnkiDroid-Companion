@@ -1,8 +1,12 @@
 package com.ankidroid.companion
 
 import android.app.TimePickerDialog
+import android.content.ActivityNotFoundException
+import android.content.Intent
 import android.graphics.Bitmap
+import android.net.Uri
 import android.os.Bundle
+import android.provider.Settings
 import android.text.format.DateFormat
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -105,12 +109,20 @@ class SettingsActivity : ComponentActivity() {
     /** Read again on resume: the user may come back from the wallpaper settings. */
     private var wallpaperActive by mutableStateOf(false)
 
+    /** "Display over other apps" allowed, checked again when coming back from the system settings. */
+    private var canOpenAfterUnlock by mutableStateOf(false)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         setContent {
             AnkiNotificationsTheme {
-                SettingsScreen(wallpaperActive = wallpaperActive, onBack = ::finish)
+                SettingsScreen(
+                    wallpaperActive = wallpaperActive,
+                    canOpenAfterUnlock = canOpenAfterUnlock,
+                    onAllowOpenAfterUnlock = ::openOverlaySettings,
+                    onBack = ::finish,
+                )
             }
         }
     }
@@ -118,6 +130,16 @@ class SettingsActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         wallpaperActive = CardWallpaperService.isActive(this)
+        canOpenAfterUnlock = ReviewSettings.canOpenAfterUnlock(this)
+    }
+
+    private fun openOverlaySettings() {
+        val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
+        try {
+            startActivity(intent)
+        } catch (e: ActivityNotFoundException) {
+            startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION))
+        }
     }
 }
 
@@ -129,11 +151,17 @@ private val TEXT_COLORS = listOf(0xFFFFFFFF.toInt(), 0xFF000000.toInt(), 0xFFFFE
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SettingsScreen(wallpaperActive: Boolean, onBack: () -> Unit) {
+private fun SettingsScreen(
+    wallpaperActive: Boolean,
+    canOpenAfterUnlock: Boolean,
+    onAllowOpenAfterUnlock: () -> Unit,
+    onBack: () -> Unit,
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var severalInARow by remember { mutableStateOf(ReviewSettings.severalInARow(context)) }
     var rotateOnUnlock by remember { mutableStateOf(ReviewSettings.rotateOnUnlock(context)) }
+    var reviewMode by remember { mutableStateOf(ReviewSettings.reviewMode(context)) }
     var style by remember { mutableStateOf(WallpaperStyle.load(context)) }
     var background by remember { mutableStateOf<Bitmap?>(null) }
     val sample = remember { previewContent(context) }
@@ -228,6 +256,51 @@ private fun SettingsScreen(wallpaperActive: Boolean, onBack: () -> Unit) {
 
             SettingsGroup(Icons.Filled.Lock, stringResource(R.string.wallpaper_content)) {
                 WallpaperStatus(wallpaperActive, onSetWallpaper = { showWallpaperInstructions = true })
+                Section(stringResource(R.string.review_mode)) {
+                    val modes = ReviewSettings.ReviewMode.entries
+                    val labels = listOf(R.string.review_mode_notification, R.string.review_mode_open_after_unlock)
+                    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                        modes.forEachIndexed { index, mode ->
+                            SegmentedButton(
+                                selected = reviewMode == mode,
+                                onClick = {
+                                    ReviewSettings.setReviewMode(context, mode)
+                                    reviewMode = mode
+                                },
+                                shape = SegmentedButtonDefaults.itemShape(index, modes.size),
+                            ) { Text(stringResource(labels[index])) }
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        stringResource(
+                            if (reviewMode == ReviewSettings.ReviewMode.OPEN_AFTER_UNLOCK) R.string.review_mode_open_after_unlock_summary
+                            else R.string.review_mode_notification_summary
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    if (reviewMode == ReviewSettings.ReviewMode.OPEN_AFTER_UNLOCK && !wallpaperActive) {
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            stringResource(R.string.review_mode_needs_wallpaper),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                    if (reviewMode == ReviewSettings.ReviewMode.OPEN_AFTER_UNLOCK && !canOpenAfterUnlock) {
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            stringResource(R.string.review_mode_needs_overlay),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        FilledTonalButton(onClick = onAllowOpenAfterUnlock) {
+                            Text(stringResource(R.string.review_mode_allow_overlay))
+                        }
+                    }
+                }
                 Column {
                     val labels = listOf(R.string.wallpaper_content_question, R.string.wallpaper_content_question_answer)
                     SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
@@ -242,18 +315,27 @@ private fun SettingsScreen(wallpaperActive: Boolean, onBack: () -> Unit) {
                     Spacer(Modifier.height(8.dp))
                     Text(
                         stringResource(
-                            if (style.showAnswer) R.string.wallpaper_content_question_answer_summary
-                            else R.string.wallpaper_content_question_summary
+                            when {
+                                reviewMode == ReviewSettings.ReviewMode.OPEN_AFTER_UNLOCK && style.showAnswer ->
+                                    R.string.wallpaper_content_question_answer_summary_review_screen
+                                reviewMode == ReviewSettings.ReviewMode.OPEN_AFTER_UNLOCK ->
+                                    R.string.wallpaper_content_question_summary_review_screen
+                                style.showAnswer -> R.string.wallpaper_content_question_answer_summary
+                                else -> R.string.wallpaper_content_question_summary
+                            }
                         ),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        stringResource(R.string.lock_screen_sensitive_tip),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    // About the notification's answer: no notification with "Open after unlock".
+                    if (reviewMode == ReviewSettings.ReviewMode.NOTIFICATION) {
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            stringResource(R.string.lock_screen_sensitive_tip),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
 
