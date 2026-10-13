@@ -54,6 +54,11 @@
     <!-- Wallpaper settings -->
     <string name="settings_title">Settings</string>
     <string name="settings_behavior">Behavior</string>
+    <string name="settings_help">Help</string>
+    <string name="report_issue">Report an issue</string>
+    <string name="report_issue_summary">Opens a new issue on GitHub, with your phone model, Android version and app versions already filled in. You can check and edit everything before sending it.</string>
+    <string name="report_issue_no_browser">No browser found to open GitHub.</string>
+    <string name="report_issue_ankidroid_missing">Not installed</string>
     <string name="wallpaper_content">Lock screen content</string>
     <string name="wallpaper_content_question">Question</string>
     <string name="wallpaper_content_question_answer">Question and answer</string>

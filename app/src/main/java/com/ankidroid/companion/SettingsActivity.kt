@@ -41,6 +41,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Lock
@@ -298,6 +299,19 @@ private fun SettingsScreen(wallpaperActive: Boolean, onBack: () -> Unit) {
                                 shape = SegmentedButtonDefaults.itemShape(index, sizes.size),
                             ) { Text(stringResource(labels[index])) }
                         }
+                    }
+                }
+            }
+
+            if (ReportIssue.isAvailable(context)) {
+                SettingsGroup(Icons.Filled.Info, stringResource(R.string.settings_help)) {
+                    Text(
+                        stringResource(R.string.report_issue_summary),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    OutlinedButton(onClick = { ReportIssue.open(context) }) {
+                        Text(stringResource(R.string.report_issue))
                     }
                 }
             }

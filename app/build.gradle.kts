@@ -3,6 +3,16 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+// GitHub repository (owner/name) that "Report an issue" opens, kept out of the sources: the repository running the
+// CI build, or the one of the local `origin` remote. Empty (the entry is hidden) when neither is known.
+val issuesRepository: String = providers.environmentVariable("GITHUB_REPOSITORY").orNull ?: runCatching {
+    val origin = providers.exec {
+        commandLine("git", "remote", "get-url", "origin")
+        isIgnoreExitValue = true
+    }.standardOutput.asText.get().trim()
+    Regex("""github\.com[:/]([^/]+/[^/]+?)(\.git)?$""").find(origin)?.groupValues?.get(1)
+}.getOrNull().orEmpty()
+
 android {
     namespace = "com.ankidroid.companion"
     compileSdk = 34
@@ -18,6 +28,7 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
+        resValue("string", "issues_repository", issuesRepository)
     }
 
     buildTypes {
@@ -35,6 +46,7 @@ android {
     }
     buildFeatures {
         compose = true
+        resValues = true
     }
     packaging {
         resources {
