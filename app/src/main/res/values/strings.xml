@@ -110,6 +110,7 @@
     <string name="setup_battery">Keep checking for new cards</string>
     <string name="setup_battery_detail">Background activity is restricted for this app, so new cards don\'t show up. Set its battery usage to Optimized or Unrestricted.</string>
     <string name="setup_fix">Fix</string>
+    <string name="wallpaper_configured">Lock screen wallpaper configured</string>
     <string name="lock_screen_sensitive_tip">Answer hidden on the lock screen? Allow sensitive notifications in your phone\'s notification settings.</string>
 
     <!-- Notification -->
