@@ -194,6 +194,9 @@ private fun ReadyContent(
         if (!setup.isComplete) {
             item(key = "setup") { SetupCard(setup, onSetWallpaper = { showWallpaperInstructions = true }, actions) }
         }
+        if (setup.wallpaperActive) {
+            item(key = "wallpaper-configured") { WallpaperConfigured() }
+        }
         item(key = "current") { CurrentCardCard(currentCard, onlyWhileLocked = setup.wallpaperActive) }
 
         item(key = "order-header") {
@@ -395,6 +398,25 @@ private fun SetupCard(setup: SetupStatus, onSetWallpaper: () -> Unit, actions: M
                 SetupItem(R.string.setup_battery, R.string.setup_battery_detail, actions.onOpenBatterySettings)
             }
         }
+    }
+}
+
+/** A light confirmation once the card wallpaper is set: the setup checklist then no longer mentions it. */
+@Composable
+private fun WallpaperConfigured() {
+    Row(Modifier.padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Icon(
+            Icons.Filled.CheckCircle,
+            contentDescription = null,
+            modifier = Modifier.size(18.dp),
+            tint = MaterialTheme.colorScheme.primary,
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(
+            stringResource(R.string.wallpaper_configured),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
