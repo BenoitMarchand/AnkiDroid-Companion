@@ -6,7 +6,7 @@ Status: **implemented, testing on devices** · Branch: `feature/lockscreen-revie
 
 ## Approach: live wallpaper
 
-The app provides a **live wallpaper** ("Lockscreen Cards for AnkiDroid") that the user selects in Android's own wallpaper settings, for the **lock screen only**. The wallpaper draws the current card's question.
+The app provides a **live wallpaper** ("Micro Review for AnkiDroid") that the user selects in Android's own wallpaper settings, for the **lock screen only**. The wallpaper draws the current card's question.
 
 Why not swap static wallpapers (`WallpaperManager.setBitmap`)?
 - Nothing has to be saved and restored, so the original wallpaper is never lost.

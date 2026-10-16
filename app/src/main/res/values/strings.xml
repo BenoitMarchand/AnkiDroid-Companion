@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Lockscreen Cards for AnkiDroid</string>
+    <string name="app_name">Micro Review for AnkiDroid</string>
     <string name="again">Again</string>
     <string name="hard">Hard</string>
     <string name="good">Good</string>
@@ -20,7 +20,7 @@
     <string name="rotation_size_warning">Above %1$d cards, the most urgent cards come back less often, and checking the card at each lock takes longer.</string>
     <string name="success">Success</string>
     <string name="review_close">Close</string>
-    <string name="review_no_card">No card to review. Open Lockscreen Cards for AnkiDroid and select a deck.</string>
+    <string name="review_no_card">No card to review. Open Micro Review for AnkiDroid and select a deck.</string>
 
     <!-- Home screen card widget -->
     <string name="widget_label">Card</string>
@@ -37,7 +37,7 @@
     <string name="current_card_none">Tick a deck below to start reviewing: its first card shows up in a notification.</string>
     <string name="all_cards_done">Bravo! You\'ve finished all cards in the selected decks.</string>
     <string name="all_cards_done_next">New cards will show up here when it\'s time to study.</string>
-    <string name="wallpaper_not_started">Select your decks in Lockscreen Cards for AnkiDroid</string>
+    <string name="wallpaper_not_started">Select your decks in Micro Review for AnkiDroid</string>
     <string name="from_deck">From %1$s</string>
     <string name="review_order">Review order</string>
     <string name="review_order_explanation">Cards come from the first deck below that has one to review, then the next one. A deck includes its subdecks. Cards with sound in the question are skipped.</string>
@@ -57,7 +57,7 @@
     <string name="error_api_unavailable_title">AnkiDroid not available</string>
     <string name="error_api_unavailable">Either AnkiDroid is not installed, or its API is disabled. Enable it in AnkiDroid: Settings › Advanced › Enable AnkiDroid API.</string>
     <string name="error_permission_title">Permission needed</string>
-    <string name="error_permission">Lockscreen Cards for AnkiDroid needs access to your AnkiDroid cards to show them.</string>
+    <string name="error_permission">Micro Review for AnkiDroid needs access to your AnkiDroid cards to show them.</string>
     <string name="grant_permission">Grant access</string>
     <string name="retry">Retry</string>
     <string name="notification_permission_denied">Notifications are disabled: cards can\'t be reviewed from the notification. Enable them in the app\'s system settings.</string>
@@ -116,7 +116,7 @@
     <string name="setup_notifications">Allow notifications</string>
     <string name="setup_notifications_detail">Needed to review cards from the notification.</string>
     <string name="setup_wallpaper">Show cards on the lock screen</string>
-    <string name="setup_wallpaper_detail">Set Lockscreen Cards for AnkiDroid as your lock screen wallpaper. It is also needed to show the card only while the phone is locked, one card per unlock; without it, the notification stays visible.</string>
+    <string name="setup_wallpaper_detail">Set Micro Review for AnkiDroid as your lock screen wallpaper. It is also needed to show the card only while the phone is locked, one card per unlock; without it, the notification stays visible.</string>
     <string name="setup_battery">Keep checking for new cards</string>
     <string name="setup_battery_detail">Background activity is restricted for this app, so new cards don\'t show up. Set its battery usage to Optimized or Unrestricted.</string>
     <string name="setup_fix">Fix</string>
@@ -141,10 +141,10 @@
     <string name="scheduled_review_remove_time">Remove this time</string>
 
     <!-- Lock screen wallpaper -->
-    <string name="wallpaper_name">Lockscreen Cards for AnkiDroid</string>
+    <string name="wallpaper_name">Micro Review for AnkiDroid</string>
     <string name="wallpaper_description">Shows the card to review on the lock screen.</string>
     <string name="set_lock_wallpaper">Set lock screen wallpaper</string>
     <string name="open_wallpaper_settings">Open wallpaper settings</string>
-    <string name="set_lock_wallpaper_instructions">In the wallpaper settings:\n\n1. Select the Lock screen preview (not Home screen).\n2. Open the wallpaper list, choose Live wallpapers, then Lockscreen Cards for AnkiDroid.\n3. When asked where to apply it, choose Lock screen only.\n\nYour home screen wallpaper stays unchanged.</string>
-    <string name="set_lock_wallpaper_instructions_both_screens">On this Android version, a live wallpaper is applied to both the home and the lock screen. The card is only shown while the phone is locked; the home screen will show a plain dark background.\n\nIn the wallpaper settings, open Live wallpapers and choose Lockscreen Cards for AnkiDroid.</string>
+    <string name="set_lock_wallpaper_instructions">In the wallpaper settings:\n\n1. Select the Lock screen preview (not Home screen).\n2. Open the wallpaper list, choose Live wallpapers, then Micro Review for AnkiDroid.\n3. When asked where to apply it, choose Lock screen only.\n\nYour home screen wallpaper stays unchanged.</string>
+    <string name="set_lock_wallpaper_instructions_both_screens">On this Android version, a live wallpaper is applied to both the home and the lock screen. The card is only shown while the phone is locked; the home screen will show a plain dark background.\n\nIn the wallpaper settings, open Live wallpapers and choose Micro Review for AnkiDroid.</string>
 </resources>
