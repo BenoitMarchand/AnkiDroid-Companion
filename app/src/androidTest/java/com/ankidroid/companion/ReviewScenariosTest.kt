@@ -444,12 +444,18 @@ class ReviewScenariosTest {
         // Without the wallpaper, the timer also starts when the card is posted: Start review restarts it.
         SystemClock.sleep(3_000)
         pressWidget(StandardCardWidget.ACTION_START)
+        // The widget handles taps in the background: wait until Start is handled.
+        waitUntil {
+            context.getSharedPreferences("com.ankidroid.companion.card_widget", Context.MODE_PRIVATE)
+                .getLong("active_until", 0) > 0
+        }
         SystemClock.sleep(1_000)
         pressWidget(StandardCardWidget.ACTION_ANSWER_PREFIX + AnswerButtons.GOOD)
         waitUntil { anki.answers.isNotEmpty() }
 
+        // A little under 1 s is possible (the timer uses the wall clock); 3 s or more means Start didn't restart it.
         val timeTaken = anki.timesTaken.single()
-        assertTrue("time taken: $timeTaken ms", timeTaken in 1_000L until 3_000L)
+        assertTrue("time taken: $timeTaken ms", timeTaken in 900L until 3_000L)
     }
 
     private fun select(vararg deckIds: Long) = DeckSelection.save(context, deckIds.toList())

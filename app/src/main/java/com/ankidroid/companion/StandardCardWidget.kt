@@ -187,10 +187,12 @@ class StandardCardWidget : AppWidgetProvider() {
                     views.setOnClickPendingIntent(R.id.widgetQuestion, openApp(context))
                 }
                 CardWidgetContent.Kind.IDLE -> {
-                    // In all the selected decks; the deck of the displayed card if a count is unknown.
+                    // In all the selected decks, large above "Start review"; the deck of the displayed card if a
+                    // count is unknown.
                     val due = dueTotal(context, anki)
+                    views.setTextViewText(R.id.widgetDeck, "")
                     views.setTextViewText(
-                        R.id.widgetDeck,
+                        R.id.widgetQuestion,
                         if (due == null) card!!.deckName else context.resources.getQuantityString(R.plurals.widget_due, due, due),
                     )
                 }
@@ -206,7 +208,7 @@ class StandardCardWidget : AppWidgetProvider() {
             }
             val answer = kind == CardWidgetContent.Kind.ANSWER
             val idle = kind == CardWidgetContent.Kind.IDLE
-            views.setViewVisibility(R.id.widgetQuestion, if (idle) View.GONE else View.VISIBLE)
+            views.setViewVisibility(R.id.widgetDeck, if (kind == CardWidgetContent.Kind.QUESTION || answer) View.VISIBLE else View.GONE)
             views.setViewVisibility(R.id.widgetStart, if (idle) View.VISIBLE else View.GONE)
             views.setViewVisibility(R.id.widgetShowAnswer, if (kind == CardWidgetContent.Kind.QUESTION) View.VISIBLE else View.GONE)
             views.setViewVisibility(R.id.widgetDivider, if (answer) View.VISIBLE else View.GONE)

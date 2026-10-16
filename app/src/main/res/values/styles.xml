@@ -14,4 +14,11 @@
         <item name="android:textSize">14sp</item>
         <item name="android:maxLines">1</item>
     </style>
+
+    <!-- Answer button of the home screen widget: four of them fit down to the widget's minimum width. -->
+    <style name="WidgetAnswerButton" parent="NotificationAnswerButton">
+        <item name="android:layout_margin">3dp</item>
+        <item name="android:paddingHorizontal">0dp</item>
+        <item name="android:textSize">13sp</item>
+    </style>
 </resources>
