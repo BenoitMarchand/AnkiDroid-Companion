@@ -19,6 +19,8 @@ Lockscreen Cards for AnkiDroid is an extension app for the AnkiDroid flashcard a
 
 - **One card per unlock**: with the lock screen wallpaper set, the card notification is only visible while the phone is locked: it is removed at every unlock and comes back at the next lock. After you answer, "Next card at your next unlock" is shown for a few seconds: one card each time you unlock, as a small habit. Turn on **Review several cards in a row** in **Settings** (gear icon) to get the next card right away instead. Without the wallpaper, the notification stays visible and cards follow each other.
 
+- **Home screen widget**: add the **Card** widget to your home screen and tap **Start review** to review the current card there: **Show answer**, then the answer buttons. Each answer shows the next card right away (it doesn't use up the lock screen's card). The widget goes back to **Start review** after 2 minutes without a tap, or when the screen turns off (with the lock screen wallpaper set).
+
 - **Seamless integration**: the app doesn't store your decks, cards or reviews. Everything happens in your AnkiDroid app, through its official API.
 
 

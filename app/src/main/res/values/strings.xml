@@ -22,6 +22,16 @@
     <string name="review_close">Close</string>
     <string name="review_no_card">No card to review. Open Lockscreen Cards for AnkiDroid and select a deck.</string>
 
+    <!-- Home screen card widget -->
+    <string name="widget_label">Card</string>
+    <string name="widget_description">Review the current card from your home screen.</string>
+    <string name="widget_not_started">Tap to select your decks.</string>
+    <string name="widget_start">Start review</string>
+    <plurals name="widget_due">
+        <item quantity="one">%1$d card due</item>
+        <item quantity="other">%1$d cards due</item>
+    </plurals>
+
     <!-- Main screen -->
     <string name="current_card">Current card</string>
     <string name="current_card_none">Tick a deck below to start reviewing: its first card shows up in a notification.</string>

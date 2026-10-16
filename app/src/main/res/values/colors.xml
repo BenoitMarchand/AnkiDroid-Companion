@@ -8,6 +8,9 @@
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
     <color name="primaryText">#FF000000</color>
+    <color name="secondaryText">#99000000</color>
+    <!-- Home screen card widget (dynamic on Android 12+, see values-v31). -->
+    <color name="widget_background">#F2FFFFFF</color>
 
     <!-- Answer buttons (notification): a scale from "forgot" to "easy", the same in light and dark mode,
          white text on each (dark enough to stay readable). -->
