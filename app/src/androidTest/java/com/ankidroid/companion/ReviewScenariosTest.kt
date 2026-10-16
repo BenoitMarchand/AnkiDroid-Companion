@@ -50,7 +50,8 @@ class ReviewScenariosTest {
         // Start from a clean state: no card shown, no lock session, default settings.
         listOf(AnkiDroidHelper.STATE_DB, "com.ankidroid.companion.lock_session", "com.ankidroid.companion.card_review",
             "com.ankidroid.companion.review_settings", "com.ankidroid.companion.review_timer",
-            "com.ankidroid.companion.scheduled_review", "com.ankidroid.companion.scheduled_review_settings").forEach {
+            "com.ankidroid.companion.scheduled_review", "com.ankidroid.companion.scheduled_review_settings",
+            "com.ankidroid.companion.card_widget").forEach {
             context.getSharedPreferences(it, Context.MODE_PRIVATE).edit().clear().commit()
         }
         notificationManager().cancel(Notifications.NOTIFICATION_ID)
@@ -374,7 +375,53 @@ class ReviewScenariosTest {
         waitUntil { storedState().noteID == expected }
     }
 
+    @Test
+    fun widgetAnswer_reviewsTheCardAndShowsTheNextOne_withoutEndingTheLockSession() {
+        anki.deck(
+            1, "Spanish",
+            FakeAnkiDataSource.Card(10, question = "Hola"),
+            FakeAnkiDataSource.Card(11, question = "Adiós"),
+        )
+        select(1)
+        start()
+
+        pressWidget(StandardCardWidget.ACTION_START)
+        pressWidget(StandardCardWidget.ACTION_ANSWER_PREFIX + AnswerButtons.GOOD)
+        // The timer restarts for the next card once the answer is handled.
+        waitUntil { ReviewTimer.timeTaken(context, CardSync.CardKey(11, 0)) > 0 }
+
+        assertEquals(listOf(FakeAnkiDataSource.Answer(10, 0, ease = 3)), anki.answers)
+        assertEquals(11L, storedState().noteID)
+        // The home screen always moves on: the lock screen still has its review to do.
+        assertFalse(LockSession.prefs(context).getBoolean("answered", false))
+        assertFalse(LockSession.isWaitingForNextLock(context))
+    }
+
+    @Test
+    fun widgetAnswer_sendsTheTimeSinceStartReview() {
+        anki.deck(1, "Spanish", FakeAnkiDataSource.Card(10, question = "Hola"))
+        select(1)
+        start()
+
+        // Without the wallpaper, the timer also starts when the card is posted: Start review restarts it.
+        SystemClock.sleep(3_000)
+        pressWidget(StandardCardWidget.ACTION_START)
+        SystemClock.sleep(1_000)
+        pressWidget(StandardCardWidget.ACTION_ANSWER_PREFIX + AnswerButtons.GOOD)
+        waitUntil { anki.answers.isNotEmpty() }
+
+        val timeTaken = anki.timesTaken.single()
+        assertTrue("time taken: $timeTaken ms", timeTaken in 1_000L until 3_000L)
+    }
+
     private fun select(vararg deckIds: Long) = DeckSelection.save(context, deckIds.toList())
+
+    /** A widget button: the broadcast goes through the widget provider, like a tap. */
+    private fun pressWidget(action: String) {
+        context.sendBroadcast(
+            Intent(context, StandardCardWidget::class.java).setAction(action).addFlags(Intent.FLAG_RECEIVER_FOREGROUND)
+        )
+    }
 
     /** Reviewing starts with the deck selection: the app runs the sync once the decks are selected. */
     private fun start() {

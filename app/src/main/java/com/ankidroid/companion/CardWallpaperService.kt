@@ -49,6 +49,7 @@ class CardWallpaperService : WallpaperService() {
                 // prepare the card now so it is already there when the screen turns on.
                 Intent.ACTION_SCREEN_OFF -> {
                     ReviewTimer.clear(this@CardWallpaperService)
+                    StandardCardWidget.onScreenOff(this@CardWallpaperService)
                     onLocked()
                 }
                 Intent.ACTION_USER_PRESENT -> onUnlocked()
@@ -207,7 +208,10 @@ class CardWallpaperService : WallpaperService() {
                 draw()
             } else if (!isPreview) {
                 // Screen off: the card is no longer seen (SCREEN_OFF may be held back on Android 14+).
-                if (!isInteractive()) ReviewTimer.clear(this@CardWallpaperService)
+                if (!isInteractive()) {
+                    ReviewTimer.clear(this@CardWallpaperService)
+                    StandardCardWidget.onScreenOff(this@CardWallpaperService)
+                }
                 // Hidden while the keyguard is gone: the phone was unlocked. USER_PRESENT can't be relied on: on
                 // Android 14+ the process is cached as soon as this lock screen wallpaper is hidden, and the
                 // held-back broadcast can be lost. The keyguard may still be going away: check again shortly after.

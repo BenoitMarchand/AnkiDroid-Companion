@@ -18,9 +18,11 @@ object CardReview {
      * Answers the displayed card with [button] (one of [AnswerButtons]) and stores the next card. The next card
      * is shown right away, or, with one review per lock session, at the next lock ("Next card at your next unlock").
      *
+     * @param countsForSession whether the answer is the lock session's review; not from the home screen widget,
+     *   which always moves on to the next card
      * @return what happens next
      */
-    fun answer(context: Context, button: Int): LockSession.AfterAnswer {
+    fun answer(context: Context, button: Int, countsForSession: Boolean = true): LockSession.AfterAnswer {
         val anki = AnkiDroidHelper(context)
         val localState = anki.storedState
         var after = LockSession.AfterAnswer.SHOW_NEXT
@@ -34,8 +36,8 @@ object CardReview {
                 Log.w(TAG, "button $button is not valid for a card with ${localState.buttonCount} buttons")
                 return after
             }
-            // Also when answered while unlocked: it counts as this session's review.
-            after = LockSession.onAnswered(context)
+            // Also when answered while unlocked (scheduled review): it counts as this session's review.
+            if (countsForSession) after = LockSession.onAnswered(context)
             // The card may have been reviewed, buried or deleted in AnkiDroid since it was shown: answering it
             // again would record a second review. Null means it couldn't be checked: answer as before.
             if (anki.isCardDue(localState.deckId, localState.noteID, localState.cardOrd) == false) {
@@ -62,6 +64,7 @@ object CardReview {
         // The card is obviously seen: start the timer if no screen event did (it keeps running otherwise).
         ReviewTimer.onCardSeen(context, CardSync.CardKey(state.noteID, state.cardOrd))
         prefs(context).edit().putString(KEY_REVEALED_CARD, key(state.noteID, state.cardOrd)).apply()
+        StandardCardWidget.updateAll(context)
         if (!LockSession.mayPostNow(context)) return
         Notifications.create().showNotification(context, state.toCardInfo(), state.deckName, isSilent = true, replace = false)
     }
