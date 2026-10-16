@@ -42,6 +42,12 @@ interface AnkiDataSource {
 
     /** Records an answer. [ease] is 1 to the card's button count. */
     fun reviewCard(noteId: Long, cardOrd: Int, ease: Int, timeTakenMs: Long)
+
+    /** The deck selected in AnkiDroid (the one its study screen shows), or null if it can't be read. */
+    fun selectedDeck(): Long?
+
+    /** Selects a deck in AnkiDroid. Returns whether it was selected. */
+    fun selectDeck(deckId: Long): Boolean
 }
 
 /** The data source in use: AnkiDroid's ContentProvider, unless a test installed a fake. */
@@ -125,6 +131,30 @@ class ContentProviderAnkiData(private val context: Context) : AnkiDataSource {
             put(FlashCardsContract.ReviewInfo.TIME_TAKEN, timeTakenMs)
         }
         context.contentResolver.update(FlashCardsContract.ReviewInfo.CONTENT_URI, values, null, null)
+    }
+
+    override fun selectedDeck(): Long? {
+        if (!isPermissionGranted()) return null
+        val projection = arrayOf(FlashCardsContract.Deck.DECK_ID)
+        return try {
+            context.contentResolver.query(FlashCardsContract.Deck.CONTENT_SELECTED_URI, projection, null, null, null)?.use { cursor ->
+                if (cursor.moveToFirst()) cursor.getLong(cursor.getColumnIndexOrThrow(FlashCardsContract.Deck.DECK_ID)) else null
+            }
+        } catch (e: RuntimeException) {
+            Log.e(TAG, "Could not read the selected deck", e)
+            null
+        }
+    }
+
+    override fun selectDeck(deckId: Long): Boolean {
+        if (!isPermissionGranted()) return false
+        val values = ContentValues().apply { put(FlashCardsContract.Deck.DECK_ID, deckId) }
+        return try {
+            context.contentResolver.update(FlashCardsContract.Deck.CONTENT_SELECTED_URI, values, null, null) > 0
+        } catch (e: RuntimeException) {
+            Log.e(TAG, "Could not select deck $deckId", e)
+            false
+        }
     }
 
     /** Runs a due-card query (`ReviewInfo`, deck -1 = current deck) and maps each row. Empty on error. */

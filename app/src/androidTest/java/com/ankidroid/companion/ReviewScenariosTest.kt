@@ -248,6 +248,44 @@ class ReviewScenariosTest {
     }
 
     @Test
+    fun rotatedCard_ofTheDeckSelectedInAnkiDroid_isAnswered() {
+        // AnkiDroid keeps the study queue of its selected deck, and then only answers its first card (#62).
+        // Not deck 1: that's AnkiDroid's "Default" deck.
+        anki.deck(
+            5, "Spanish",
+            FakeAnkiDataSource.Card(10, question = "Hola"),
+            FakeAnkiDataSource.Card(11, question = "Adiós"),
+        ).selectInAnkiDroid(5)
+        select(5)
+        ReviewSettings.setRotationSize(context, 2)
+        start()
+        rotate(expected = 11)
+
+        press("ACTION_BUTTON_3")
+        waitUntil { anki.answers.isNotEmpty() || anki.refused.isNotEmpty() }
+
+        assertEquals(listOf(FakeAnkiDataSource.Answer(11, 0, ease = 3)), anki.answers)
+        assertEquals(5L, anki.selectedDeck())
+    }
+
+    @Test
+    fun cardAfterASkippedSoundCard_ofTheDeckSelectedInAnkiDroid_isAnswered() {
+        anki.deck(
+            5, "Spanish",
+            FakeAnkiDataSource.Card(10, question = "[sound:hola.mp3]"),
+            FakeAnkiDataSource.Card(11, question = "Adiós"),
+        ).selectInAnkiDroid(5)
+        select(5)
+        start()
+        assertEquals(11L, storedState().noteID)
+
+        press("ACTION_BUTTON_3")
+        waitUntil { anki.answers.isNotEmpty() || anki.refused.isNotEmpty() }
+
+        assertEquals(listOf(FakeAnkiDataSource.Answer(11, 0, ease = 3)), anki.answers)
+    }
+
+    @Test
     fun scheduledReview_startShowsTheQuestionAndTheAnswerIsTimedFromStart() {
         anki.deck(
             1, "Spanish",
