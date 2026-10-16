@@ -226,6 +226,25 @@ public class AnkiDroidHelper {
 
     /** Records the review in AnkiDroid; {@code timeTakenMs} is how long the card was looked at ({@link ReviewTimer}). */
     public void reviewCard(long noteID, int cardOrd, int ease, long timeTakenMs) {
+        // Right before the answer: the due-card queries (isCardDue()) can build the study queue again.
+        dropStudyQueue();
         mSource.reviewCard(noteID, cardOrd, ease, timeTakenMs);
+    }
+
+    /**
+     * Lets AnkiDroid answer any card, not only the next one of its own review: see {@link StudyQueue}. Selects
+     * another deck and then the selected one again, which drops AnkiDroid's study queue.
+     */
+    private void dropStudyQueue() {
+        Long selected = mSource.selectedDeck();
+        Map<Long, String> decks = mSource.deckNames();
+        Long other = selected == null || decks == null ? null : StudyQueue.otherDeck(selected, decks.keySet());
+        boolean dropped = other != null && mSource.selectDeck(other);
+        if (dropped && !mSource.selectDeck(selected)) {
+            Log.e("Notifications", "could not select deck " + selected + " again in AnkiDroid");
+        }
+        if (!dropped) {
+            Log.w("Notifications", "could not drop AnkiDroid's study queue: only its next card can be answered");
+        }
     }
 }
