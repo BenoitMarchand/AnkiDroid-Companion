@@ -4,7 +4,7 @@ Guidance for Claude Code when working in this repository.
 
 ## What this app is
 
-Lockscreen Cards for AnkiDroid is a small Android app that lets the user review AnkiDroid flashcards from a persistent notification, without opening AnkiDroid. It stores **no** deck or card data of its own: everything is read from and written to AnkiDroid through its public ContentProvider API (`com.github.ankidroid:Anki-Android` → `FlashCardsContract` / `AddContentApi`). AnkiDroid (`com.ichi2.anki`) must be installed, with its API enabled and the `READ_WRITE_DATABASE` permission granted.
+Micro Review for AnkiDroid is a small Android app that lets the user review AnkiDroid flashcards in short bursts from a persistent notification, the lock screen wallpaper or a home screen widget, without opening AnkiDroid. It stores **no** deck or card data of its own: everything is read from and written to AnkiDroid through its public ContentProvider API (`com.github.ankidroid:Anki-Android` → `FlashCardsContract` / `AddContentApi`). AnkiDroid (`com.ichi2.anki`) must be installed, with its API enabled and the `READ_WRITE_DATABASE` permission granted.
 
 ## Repository & current work
 

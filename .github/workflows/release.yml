@@ -112,7 +112,7 @@ jobs:
         GH_TOKEN: ${{ github.token }}
       run: |
         VERSION="${{ steps.version.outputs.version }}"
-        APK="Lockscreen-Cards-for-AnkiDroid-v$VERSION.apk"
+        APK="Micro-Review-for-AnkiDroid-v$VERSION.apk"
         cp ${{ env.main_project_module }}/build/outputs/apk/debug/app-debug.apk "$APK"
         PREVIOUS=$(git tag --list 'v*' --sort=-v:refname | grep -v -e '-rc' -e "^v$VERSION\$" | head -n 1 || true)
         ARGS=(--title "v$VERSION" --generate-notes)
