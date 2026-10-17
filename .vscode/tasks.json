@@ -66,6 +66,25 @@
                 "focus": true
             },
             "problemMatcher": []
+        },
+        {
+            "label": "Android: generate store assets",
+            "detail": "Generate the Play Store screenshots, GIFs and icon on an emulator with AnkiDroid (docs/play-store)",
+            "type": "shell",
+            "command": "powershell",
+            "args": [
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                "${workspaceFolder}/scripts/store-assets.ps1"
+            ],
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "focus": true
+            },
+            "problemMatcher": []
         }
     ]
 }
