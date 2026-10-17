@@ -21,8 +21,8 @@ android {
         applicationId = "com.ankidroid.companion"
         minSdk = 26
         targetSdk = 34
-        versionCode = 35
-        versionName = "0.3.14"
+        versionCode = 36
+        versionName = "0.3.15"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
