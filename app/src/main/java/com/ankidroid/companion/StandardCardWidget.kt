@@ -8,9 +8,14 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
+import android.graphics.Bitmap
+import android.os.Build
+import android.os.Bundle
 import android.util.Log
 import android.view.View
 import android.widget.RemoteViews
+import androidx.core.graphics.ColorUtils
 import java.util.concurrent.Executors
 
 /**
@@ -22,11 +27,20 @@ import java.util.concurrent.Executors
  * Reviewing goes through [CardReview], like the notification, but an answer from the widget doesn't count as the
  * lock session's review. The review timer starts at "Start review" and again with each new card.
  *
- * Updated by [CardStateController] and [CardReview] whenever the displayed card or its revealed answer changes.
+ * Its look is the widget's [WallpaperStyle] (target [WallpaperStyle.Target.WIDGET]): the background is drawn by
+ * [CardRenderer] into a bitmap of the widget's size; the system colors until the style is changed in Settings.
+ *
+ * Updated by [CardStateController] and [CardReview] whenever the displayed card or its revealed answer changes, and
+ * by [SettingsActivity] when the style changes.
  */
 class StandardCardWidget : AppWidgetProvider() {
 
     override fun onUpdate(context: Context, manager: AppWidgetManager, appWidgetIds: IntArray) {
+        updateAll(context)
+    }
+
+    /** Resized: the background is drawn again at the new size. */
+    override fun onAppWidgetOptionsChanged(context: Context, manager: AppWidgetManager, appWidgetId: Int, newOptions: Bundle) {
         updateAll(context)
     }
 
@@ -63,6 +77,10 @@ class StandardCardWidget : AppWidgetProvider() {
         private const val PREFS = "com.ankidroid.companion.card_widget"
         private const val KEY_ACTIVE_UNTIL = "active_until"
 
+        /** Opacity of the deck name and of the divider over the style's text color, as in the default colors. */
+        private const val SECONDARY_ALPHA = 0x99
+        private const val DIVIDER_ALPHA = 0x40
+
         const val ACTION_START = "com.ankidroid.companion.WIDGET_START"
         const val ACTION_SHOW_ANSWER = "com.ankidroid.companion.WIDGET_SHOW_ANSWER"
         const val ACTION_ANSWER_PREFIX = "com.ankidroid.companion.WIDGET_ANSWER_"
@@ -70,6 +88,10 @@ class StandardCardWidget : AppWidgetProvider() {
 
         /** Updates and taps, in order: building the widget may query AnkiDroid (due counts). */
         private val background = Executors.newSingleThreadExecutor()
+
+        /** The widget style's decoded picture, kept until another one is picked. Used on [background] only. */
+        private var picture: Pair<Long, Bitmap>? = null
+        private var renderer: CardRenderer? = null
 
         private val answerButtonIds = mapOf(
             AnswerButtons.AGAIN to R.id.widgetButton1,
@@ -155,7 +177,75 @@ class StandardCardWidget : AppWidgetProvider() {
         private fun redraw(context: Context) {
             val manager = AppWidgetManager.getInstance(context) ?: return
             val ids = manager.getAppWidgetIds(ComponentName(context, StandardCardWidget::class.java))
-            if (ids.isNotEmpty()) manager.updateAppWidget(ids, views(context))
+            if (ids.isEmpty()) return
+            val target = WallpaperStyle.Target.WIDGET
+            val style = WallpaperStyle.load(context, target).takeIf { WallpaperStyle.isCustomized(context, target) }
+            val picture = style?.let { loadPicture(context, it) }
+            val renderer = renderer ?: CardRenderer(context.resources.displayMetrics.density).also { renderer = it }
+            // Each widget has its own size, so its own background.
+            for (id in ids) {
+                val views = views(context)
+                if (style != null) {
+                    val (widthDp, heightDp) = sizeDp(context, manager.getAppWidgetOptions(id))
+                    applyStyle(context, views, renderer, style, picture, widthDp, heightDp)
+                }
+                manager.updateAppWidget(id, views)
+            }
+        }
+
+        /**
+         * The widget showing [content]'s question and "Show answer" in [style], at [widthDp] x [heightDp]: the style
+         * preview in Settings, drawn with the widget's own layout.
+         */
+        fun preview(
+            context: Context, renderer: CardRenderer, style: WallpaperStyle, picture: Bitmap?, content: CardContent,
+            widthDp: Int, heightDp: Int,
+        ): RemoteViews {
+            val views = RemoteViews(context.packageName, R.layout.card_widget)
+            views.setTextViewText(R.id.widgetDeck, content.subtitle.orEmpty())
+            views.setTextViewText(R.id.widgetQuestion, content.text)
+            views.setViewVisibility(R.id.widgetShowAnswer, View.VISIBLE)
+            applyStyle(context, views, renderer, style, picture, widthDp, heightDp)
+            return views
+        }
+
+        /** The style's background, drawn at the widget's size, and its text color. */
+        private fun applyStyle(
+            context: Context, views: RemoteViews, renderer: CardRenderer, style: WallpaperStyle, picture: Bitmap?,
+            widthDp: Int, heightDp: Int,
+        ) {
+            val size = CardWidgetContent.backgroundSize(widthDp, heightDp, context.resources.displayMetrics.density)
+            val radius = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                context.resources.getDimension(android.R.dimen.system_app_widget_background_radius)
+            } else {
+                context.resources.getDimension(R.dimen.widget_radius)
+            }
+            views.setImageViewBitmap(
+                R.id.widgetBackground,
+                renderer.widgetBackground(size.width, size.height, radius * size.scale, style, picture),
+            )
+            views.setTextColor(R.id.widgetQuestion, style.textColor)
+            views.setTextColor(R.id.widgetAnswer, style.textColor)
+            views.setTextColor(R.id.widgetDeck, ColorUtils.setAlphaComponent(style.textColor, SECONDARY_ALPHA))
+            views.setInt(R.id.widgetDivider, "setBackgroundColor", ColorUtils.setAlphaComponent(style.textColor, DIVIDER_ALPHA))
+        }
+
+        private fun loadPicture(context: Context, style: WallpaperStyle): Bitmap? {
+            if (!style.hasImage) return null
+            picture?.takeIf { it.first == style.imageVersion }?.let { return it.second }
+            val bitmap = WallpaperStyle.loadBackground(context, WallpaperStyle.Target.WIDGET) ?: return null
+            picture = style.imageVersion to bitmap
+            return bitmap
+        }
+
+        /** The widget's size in dp in the current orientation, or 0 if the launcher didn't tell it. */
+        private fun sizeDp(context: Context, options: Bundle): Pair<Int, Int> {
+            val portrait = context.resources.configuration.orientation != Configuration.ORIENTATION_LANDSCAPE
+            return if (portrait) {
+                options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH) to options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT)
+            } else {
+                options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH) to options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT)
+            }
         }
 
         private fun views(context: Context): RemoteViews {

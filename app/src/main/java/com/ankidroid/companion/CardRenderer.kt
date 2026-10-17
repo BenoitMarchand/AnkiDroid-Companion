@@ -5,6 +5,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.LinearGradient
 import android.graphics.Paint
+import android.graphics.Path
 import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Shader
@@ -41,13 +42,37 @@ class CardRenderer(private val density: Float) {
      * @param content the card to show, or null to draw the background only (home screen)
      */
     fun draw(canvas: Canvas, width: Int, height: Int, style: WallpaperStyle, background: Bitmap?, content: CardContent?) {
+        drawBackground(canvas, width, height, style, background)
+        if (content != null && content.text.isNotEmpty()) {
+            drawContent(canvas, width, height, style, background != null, content)
+        }
+    }
+
+    /**
+     * The style's background: its color, or its picture with the filter (except the text panel, drawn with the
+     * text). See-through, only the fade over what is behind (the widget over the home screen wallpaper).
+     */
+    fun drawBackground(canvas: Canvas, width: Int, height: Int, style: WallpaperStyle, background: Bitmap?) {
+        if (style.seeThrough) {
+            if (style.filter == PictureFilter.DARKEN) canvas.drawColor(scrimColor(style, PictureFilter.alpha(style.filterIntensity)))
+            return
+        }
         canvas.drawColor(style.backgroundColor)
         if (background != null) {
             canvas.drawBitmap(filteredBackground(width, height, style, background), 0f, 0f, bitmapPaint)
         }
-        if (content != null && content.text.isNotEmpty()) {
-            drawContent(canvas, width, height, style, background != null, content)
-        }
+    }
+
+    /**
+     * The widget's background as a bitmap of [width] × [height] pixels, with rounded corners of [radius] pixels
+     * (transparent outside them).
+     */
+    fun widgetBackground(width: Int, height: Int, radius: Float, style: WallpaperStyle, background: Bitmap?): Bitmap {
+        val result = Bitmap.createBitmap(width.coerceAtLeast(1), height.coerceAtLeast(1), Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(result)
+        canvas.clipPath(Path().apply { addRoundRect(RectF(0f, 0f, width.toFloat(), height.toFloat()), radius, radius, Path.Direction.CW) })
+        drawBackground(canvas, width, height, style, background)
+        return result
     }
 
     /**
@@ -62,18 +87,17 @@ class CardRenderer(private val density: Float) {
         val result = Bitmap.createBitmap(width.coerceAtLeast(1), height.coerceAtLeast(1), Bitmap.Config.ARGB_8888)
         val canvas = Canvas(result)
         drawCropped(canvas, width, height, background)
-        val scrimColor = if (key.lightText) Color.BLACK else Color.WHITE
         val alpha = PictureFilter.alpha(style.filterIntensity)
         when (style.filter) {
             PictureFilter.DARKEN -> {
                 scrimPaint.shader = null
-                scrimPaint.color = ColorUtils.setAlphaComponent(scrimColor, alpha)
+                scrimPaint.color = scrimColor(style, alpha)
                 canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), scrimPaint)
             }
             PictureFilter.GRADIENT -> {
                 val band = PictureFilters.gradientBand(CardLayout.textArea(width, height, density), height)
-                val solid = ColorUtils.setAlphaComponent(scrimColor, alpha)
-                val clear = ColorUtils.setAlphaComponent(scrimColor, 0)
+                val solid = scrimColor(style, alpha)
+                val clear = scrimColor(style, 0)
                 val span = (band.bottom - band.top).coerceAtLeast(1f)
                 scrimPaint.shader = LinearGradient(
                     0f, band.top, 0f, band.bottom,
@@ -170,9 +194,7 @@ class CardRenderer(private val density: Float) {
         if (onImage && style.filter == PictureFilter.PANEL) {
             val padding = PANEL_PADDING_DP * density
             val centerX = area.left + textWidth / 2f
-            panelPaint.color = ColorUtils.setAlphaComponent(
-                if (isLight(style.textColor)) Color.BLACK else Color.WHITE, PictureFilter.alpha(style.filterIntensity),
-            )
+            panelPaint.color = scrimColor(style, PictureFilter.alpha(style.filterIntensity))
             val radius = PANEL_RADIUS_DP * density
             canvas.drawRoundRect(
                 centerX - textBlockWidth / 2 - padding, top - padding,
@@ -200,6 +222,10 @@ class CardRenderer(private val density: Float) {
         }
         canvas.restore()
     }
+
+    /** Darkens behind light text, lightens behind dark text, with [alpha] (0–255). */
+    private fun scrimColor(style: WallpaperStyle, alpha: Int) =
+        ColorUtils.setAlphaComponent(if (isLight(style.textColor)) Color.BLACK else Color.WHITE, alpha)
 
     /** How many lines of [paint]'s text fit in [height] (at least one). */
     private fun maxLines(height: Float, paint: TextPaint) = (height / paint.fontSpacing).toInt().coerceAtLeast(1)

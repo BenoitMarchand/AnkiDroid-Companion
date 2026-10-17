@@ -1,13 +1,16 @@
 package com.ankidroid.companion
 
 import android.app.TimePickerDialog
+import android.app.WallpaperManager
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.text.format.DateFormat
+import android.widget.FrameLayout
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -23,6 +26,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -74,6 +78,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -83,6 +88,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
@@ -92,6 +98,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 import com.ankidroid.companion.ui.WallpaperInstructionsDialog
 import com.ankidroid.companion.ui.WallpaperSetup
 import com.ankidroid.companion.ui.theme.AnkiNotificationsTheme
@@ -103,8 +110,8 @@ import java.time.format.DateTimeFormatter
 import kotlin.math.roundToInt
 
 /**
- * The app's settings: reviewing behavior, what the lock screen wallpaper shows, and how it looks. Opened from the
- * main screen and from the system wallpaper picker.
+ * The app's settings: reviewing behavior, what the lock screen wallpaper shows, and how it and the home screen
+ * widget look. Opened from the main screen and from the system wallpaper picker.
  */
 class SettingsActivity : ComponentActivity() {
     /** Read again on resume: the user may come back from the wallpaper settings. */
@@ -159,12 +166,12 @@ private fun SettingsScreen(
     onBack: () -> Unit,
 ) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
     var severalInARow by remember { mutableStateOf(ReviewSettings.severalInARow(context)) }
     var rotateOnUnlock by remember { mutableStateOf(ReviewSettings.rotateOnUnlock(context)) }
     var reviewMode by remember { mutableStateOf(ReviewSettings.reviewMode(context)) }
-    var style by remember { mutableStateOf(WallpaperStyle.load(context)) }
-    var background by remember { mutableStateOf<Bitmap?>(null) }
+    var styles by remember { mutableStateOf(WallpaperStyle.Target.entries.associateWith { WallpaperStyle.load(context, it) }) }
+    var styleTarget by rememberSaveable { mutableStateOf(WallpaperStyle.Target.LOCK_SCREEN) }
+    val lockStyle = styles.getValue(WallpaperStyle.Target.LOCK_SCREEN)
     val sample = remember { previewContent(context) }
     var showWallpaperInstructions by rememberSaveable { mutableStateOf(false) }
     if (showWallpaperInstructions) {
@@ -175,25 +182,16 @@ private fun SettingsScreen(
         )
     }
 
-    fun update(newStyle: WallpaperStyle) {
-        style = newStyle
-        WallpaperStyle.save(context, newStyle)
+    /** Shows [newStyle] in the preview, without saving it (a slider being moved). */
+    fun preview(target: WallpaperStyle.Target, newStyle: WallpaperStyle) {
+        styles = styles + (target to newStyle)
     }
 
-    LaunchedEffect(style.hasImage, style.imageVersion) {
-        background = if (style.hasImage) withContext(Dispatchers.IO) { WallpaperStyle.loadBackground(context) } else null
-    }
-
-    val pickImage = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        if (uri == null) return@rememberLauncherForActivityResult
-        scope.launch {
-            val imported = withContext(Dispatchers.IO) { WallpaperStyle.importBackground(context, uri) }
-            if (imported) {
-                update(style.copy(hasImage = true, imageVersion = System.currentTimeMillis()))
-            } else {
-                Toast.makeText(context, R.string.wallpaper_image_error, Toast.LENGTH_LONG).show()
-            }
-        }
+    fun update(target: WallpaperStyle.Target, newStyle: WallpaperStyle) {
+        preview(target, newStyle)
+        WallpaperStyle.save(context, newStyle, target)
+        // The wallpaper redraws itself when its style changes; the widget is redrawn by the app.
+        if (target == WallpaperStyle.Target.WIDGET) StandardCardWidget.updateAll(context)
     }
 
     Scaffold(
@@ -307,8 +305,8 @@ private fun SettingsScreen(
                     SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                         listOf(false, true).forEachIndexed { index, showAnswer ->
                             SegmentedButton(
-                                selected = style.showAnswer == showAnswer,
-                                onClick = { update(style.copy(showAnswer = showAnswer)) },
+                                selected = lockStyle.showAnswer == showAnswer,
+                                onClick = { update(WallpaperStyle.Target.LOCK_SCREEN, lockStyle.copy(showAnswer = showAnswer)) },
                                 shape = SegmentedButtonDefaults.itemShape(index, labels.size),
                             ) { Text(stringResource(labels[index])) }
                         }
@@ -317,11 +315,11 @@ private fun SettingsScreen(
                     Text(
                         stringResource(
                             when {
-                                reviewMode == ReviewSettings.ReviewMode.OPEN_AFTER_UNLOCK && style.showAnswer ->
+                                reviewMode == ReviewSettings.ReviewMode.OPEN_AFTER_UNLOCK && lockStyle.showAnswer ->
                                     R.string.wallpaper_content_question_answer_summary_review_screen
                                 reviewMode == ReviewSettings.ReviewMode.OPEN_AFTER_UNLOCK ->
                                     R.string.wallpaper_content_question_summary_review_screen
-                                style.showAnswer -> R.string.wallpaper_content_question_answer_summary
+                                lockStyle.showAnswer -> R.string.wallpaper_content_question_answer_summary
                                 else -> R.string.wallpaper_content_question_summary
                             }
                         ),
@@ -340,48 +338,28 @@ private fun SettingsScreen(
                 }
             }
 
-            SettingsGroup(Icons.Filled.Edit, stringResource(R.string.wallpaper_settings_title)) {
-                WallpaperPreview(style, background, sample, Modifier.align(Alignment.CenterHorizontally))
-
-                Section(stringResource(R.string.wallpaper_background)) {
-                    ColorChoices(BACKGROUND_COLORS, selected = style.backgroundColor.takeIf { !style.hasImage }) {
-                        if (style.hasImage) WallpaperStyle.removeBackground(context)
-                        update(style.copy(backgroundColor = it, hasImage = false))
-                    }
-                    Spacer(Modifier.height(12.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FilledTonalButton(onClick = {
-                            pickImage.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                        }) { Text(stringResource(R.string.wallpaper_choose_image)) }
-                        if (style.hasImage) {
-                            OutlinedButton(onClick = {
-                                WallpaperStyle.removeBackground(context)
-                                update(style.copy(hasImage = false))
-                            }) { Text(stringResource(R.string.wallpaper_remove_image)) }
-                        }
+            SettingsGroup(Icons.Filled.Edit, stringResource(R.string.style_settings_title)) {
+                val targets = WallpaperStyle.Target.entries
+                val labels = listOf(R.string.style_target_lock_screen, R.string.style_target_widget)
+                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                    targets.forEachIndexed { index, target ->
+                        SegmentedButton(
+                            selected = styleTarget == target,
+                            onClick = { styleTarget = target },
+                            shape = SegmentedButtonDefaults.itemShape(index, targets.size),
+                        ) { Text(stringResource(labels[index])) }
                     }
                 }
-
-                if (style.hasImage) {
-                    PictureFilterSection(style, onPreview = { style = it }, onChange = ::update)
-                }
-
-                Section(stringResource(R.string.wallpaper_text_color)) {
-                    ColorChoices(TEXT_COLORS, selected = style.textColor) { update(style.copy(textColor = it)) }
-                }
-
-                Section(stringResource(R.string.wallpaper_text_size)) {
-                    val sizes = WallpaperStyle.TextSize.entries
-                    val labels = listOf(R.string.text_size_small, R.string.text_size_medium, R.string.text_size_large)
-                    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                        sizes.forEachIndexed { index, size ->
-                            SegmentedButton(
-                                selected = style.textSize == size,
-                                onClick = { update(style.copy(textSize = size)) },
-                                shape = SegmentedButtonDefaults.itemShape(index, sizes.size),
-                            ) { Text(stringResource(labels[index])) }
-                        }
-                    }
+                // Its own state (picture, slider) for each target.
+                key(styleTarget) {
+                    val target = styleTarget
+                    StyleEditor(
+                        target,
+                        styles.getValue(target),
+                        sample,
+                        onPreview = { preview(target, it) },
+                        onChange = { update(target, it) },
+                    )
                 }
             }
 
@@ -402,6 +380,116 @@ private fun SettingsScreen(
     }
 }
 
+/**
+ * The controls of a [WallpaperStyle] with its live preview: background (color, picture, or for the widget the
+ * see-through wallpaper), picture filter, text color, and on the lock screen the text size (the widget's texts
+ * already fit it).
+ */
+@Composable
+private fun ColumnScope.StyleEditor(
+    target: WallpaperStyle.Target,
+    style: WallpaperStyle,
+    sample: CardContent,
+    onPreview: (WallpaperStyle) -> Unit,
+    onChange: (WallpaperStyle) -> Unit,
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val widget = target == WallpaperStyle.Target.WIDGET
+    var background by remember { mutableStateOf<Bitmap?>(null) }
+
+    LaunchedEffect(style.hasImage, style.imageVersion) {
+        background = if (style.hasImage) withContext(Dispatchers.IO) { WallpaperStyle.loadBackground(context, target) } else null
+    }
+
+    val pickImage = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val imported = withContext(Dispatchers.IO) { WallpaperStyle.importBackground(context, uri, target) }
+            if (imported) {
+                onChange(style.copy(hasImage = true, seeThrough = false, imageVersion = System.currentTimeMillis()))
+            } else {
+                Toast.makeText(context, R.string.wallpaper_image_error, Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    if (widget) {
+        WidgetPreview(style, background, sample)
+    } else {
+        WallpaperPreview(style, background, sample, Modifier.align(Alignment.CenterHorizontally))
+    }
+
+    Section(stringResource(R.string.wallpaper_background)) {
+        ColorChoices(BACKGROUND_COLORS, selected = style.backgroundColor.takeIf { !style.hasImage && !style.seeThrough }) {
+            if (style.hasImage) WallpaperStyle.removeBackground(context, target)
+            onChange(style.copy(backgroundColor = it, hasImage = false, seeThrough = false))
+        }
+        Spacer(Modifier.height(12.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FilledTonalButton(onClick = {
+                pickImage.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+            }) { Text(stringResource(R.string.wallpaper_choose_image)) }
+            if (style.hasImage) {
+                OutlinedButton(onClick = {
+                    WallpaperStyle.removeBackground(context, target)
+                    onChange(style.copy(hasImage = false))
+                }) { Text(stringResource(R.string.wallpaper_remove_image)) }
+            }
+        }
+        if (widget) {
+            Spacer(Modifier.height(4.dp))
+            FilterChip(
+                selected = style.seeThrough,
+                onClick = {
+                    if (style.seeThrough) return@FilterChip
+                    if (style.hasImage) WallpaperStyle.removeBackground(context, target)
+                    val seeThrough = style.copy(hasImage = false, seeThrough = true)
+                    // Darkened by default: the text stays readable on any wallpaper.
+                    onChange(if (style.filter in seeThrough.availableFilters(target)) seeThrough else seeThrough.copy(filter = PictureFilter.DARKEN))
+                },
+                label = { Text(stringResource(R.string.widget_background_see_through)) },
+                leadingIcon = if (style.seeThrough) {
+                    { Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(18.dp)) }
+                } else {
+                    null
+                },
+            )
+            if (style.seeThrough) {
+                Text(
+                    stringResource(R.string.widget_background_see_through_summary),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+
+    if (style.hasImage || style.seeThrough) {
+        PictureFilterSection(style, style.availableFilters(target), onPreview = onPreview, onChange = onChange)
+    }
+
+    Section(stringResource(R.string.wallpaper_text_color)) {
+        ColorChoices(TEXT_COLORS, selected = style.textColor) { onChange(style.copy(textColor = it)) }
+    }
+
+    if (!widget) {
+        Section(stringResource(R.string.wallpaper_text_size)) {
+            val sizes = WallpaperStyle.TextSize.entries
+            val labels = listOf(R.string.text_size_small, R.string.text_size_medium, R.string.text_size_large)
+            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                sizes.forEachIndexed { index, size ->
+                    SegmentedButton(
+                        selected = style.textSize == size,
+                        onClick = { onChange(style.copy(textSize = size)) },
+                        shape = SegmentedButtonDefaults.itemShape(index, sizes.size),
+                    ) { Text(stringResource(labels[index])) }
+                }
+            }
+        }
+    }
+}
+
 private val FILTER_LABELS = mapOf(
     PictureFilter.DARKEN to R.string.picture_filter_darken,
     PictureFilter.BLUR to R.string.picture_filter_blur,
@@ -415,10 +503,15 @@ private val FILTER_LABELS = mapOf(
  * ([onPreview]) and saves when released ([onChange]), so the wallpaper isn't redrawn on every step.
  */
 @Composable
-private fun PictureFilterSection(style: WallpaperStyle, onPreview: (WallpaperStyle) -> Unit, onChange: (WallpaperStyle) -> Unit) {
+private fun PictureFilterSection(
+    style: WallpaperStyle,
+    filters: List<PictureFilter>,
+    onPreview: (WallpaperStyle) -> Unit,
+    onChange: (WallpaperStyle) -> Unit,
+) {
     Section(stringResource(R.string.picture_filter)) {
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            PictureFilter.entries.forEach { filter ->
+            filters.forEach { filter ->
                 FilterChip(
                     selected = style.filter == filter,
                     onClick = { onChange(style.copy(filter = filter)) },
@@ -493,6 +586,52 @@ private fun WallpaperPreview(style: WallpaperStyle, background: Bitmap?, content
             native.restore()
         }
     }
+}
+
+/**
+ * The widget in [style], drawn with its own layout ([StandardCardWidget.preview]), at a 4 x 2 cells shape, over the
+ * colors of the home screen wallpaper (the app can't read the wallpaper itself).
+ */
+@Composable
+private fun WidgetPreview(style: WallpaperStyle, picture: Bitmap?, content: CardContent) {
+    val context = LocalContext.current
+    val renderer = remember { CardRenderer(context.resources.displayMetrics.density) }
+    val fallback = listOf(MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.tertiaryContainer)
+    var wallpaperColors by remember { mutableStateOf<List<Color>?>(null) }
+    LaunchedEffect(Unit) {
+        wallpaperColors = withContext(Dispatchers.IO) { homeWallpaperColors(context) }
+    }
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(24.dp))
+            .background(Brush.linearGradient(wallpaperColors ?: fallback))
+            .padding(16.dp),
+    ) {
+        BoxWithConstraints(Modifier.fillMaxWidth().aspectRatio(2f)) {
+            val widthDp = maxWidth.value.toInt()
+            val heightDp = maxHeight.value.toInt()
+            val views = remember(style, picture, widthDp, heightDp) {
+                StandardCardWidget.preview(context, renderer, style, picture, content, widthDp, heightDp)
+            }
+            AndroidView(
+                factory = { FrameLayout(it) },
+                update = { frame ->
+                    frame.removeAllViews()
+                    frame.addView(views.apply(context, frame))
+                },
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+    }
+}
+
+/** The main colors of the home screen wallpaper (no permission needed, unlike the picture), or null. */
+private fun homeWallpaperColors(context: android.content.Context): List<Color>? {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O_MR1) return null
+    val colors = WallpaperManager.getInstance(context).getWallpaperColors(WallpaperManager.FLAG_SYSTEM) ?: return null
+    val main = listOfNotNull(colors.primaryColor, colors.secondaryColor, colors.tertiaryColor).map { Color(it.toArgb()) }
+    return if (main.size >= 2) main else main.firstOrNull()?.let { listOf(it, it) }
 }
 
 /** Number of due cards "Change the card at every unlock" rotates through, with a warning above 20. */

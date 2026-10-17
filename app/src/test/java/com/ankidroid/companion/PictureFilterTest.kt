@@ -8,6 +8,24 @@ import org.junit.Test
 class PictureFilterTest {
 
     @Test
+    fun available_lockScreenHasEveryFilter() {
+        assertEquals(PictureFilter.entries, PictureFilter.available(widget = false, seeThrough = false))
+    }
+
+    @Test
+    fun available_widgetHasNoneDrawnAroundTheText() {
+        assertEquals(
+            listOf(PictureFilter.DARKEN, PictureFilter.BLUR, PictureFilter.NONE),
+            PictureFilter.available(widget = true, seeThrough = false),
+        )
+    }
+
+    @Test
+    fun available_seeThroughCanOnlyFade() {
+        assertEquals(listOf(PictureFilter.DARKEN, PictureFilter.NONE), PictureFilter.available(widget = true, seeThrough = true))
+    }
+
+    @Test
     fun defaultIsTheFormerFixedDarkening() {
         assertEquals(PictureFilter.DARKEN, PictureFilter.DEFAULT)
         // The fixed filter used alpha 90 (35%).
