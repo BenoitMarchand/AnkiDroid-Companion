@@ -58,7 +58,7 @@ if ($Serial) {
     if ($running) {
         $deviceSerial = $running.Serial
     } else {
-        $deviceSerial = Start-Emulator $adb $Avd
+        $deviceSerial = Start-Emulator $adb $Avd -NoSnapshotSave
         $started = $true
     }
 }

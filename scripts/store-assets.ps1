@@ -25,11 +25,11 @@
     Only on an emulator: the script drives the screen (taps, lock, unlock), and the setup changes the deck
     selected in the app. Needs ffmpeg on the PATH, or Python with `pip install imageio-ffmpeg`.
 
-.PARAMETER Serial
-    Emulator to use (see `adb devices`). By default, the first running emulator with AnkiDroid installed.
-
-.PARAMETER Avd
-    Emulator to start when none with AnkiDroid is running (see `emulator -list-avds`).
+.PARAMETER Device
+    Emulator to use: its name (see `emulator -list-avds`) or, when running, its serial (see `adb devices`).
+    A stopped emulator is started first, and the script goes on once Android has booted (it stops if the
+    emulator crashes or doesn't boot within 5 minutes). Without -Device, the script lists the emulators
+    (running or not, with AnkiDroid or not) and asks which one to use. -Avd and -Serial are aliases.
 
 .PARAMETER OutputDir
     Where to write the assets. Default: build/store-assets in the project.
@@ -44,14 +44,15 @@
     Leave the emulator started by the script running at the end.
 
 .EXAMPLE
-    .\scripts\store-assets.ps1
-    .\scripts\store-assets.ps1 -Avd Pixel_9a -KeepEmulator
-    .\scripts\store-assets.ps1 -Serial emulator-5554 -SkipBuild -OutputDir C:\temp\store
+    .\scripts\store-assets.ps1                      # lists the emulators and asks which one to use
+    .\scripts\store-assets.ps1 -Device Pixel_9a -KeepEmulator
+    .\scripts\store-assets.ps1 -Device emulator-5554 -SkipBuild -OutputDir C:\temp\store
     .\scripts\store-assets.ps1 -ConvertOnly
 #>
+[CmdletBinding()]   # rejects unknown (mistyped) parameters
 param(
-    [string]$Serial,
-    [string]$Avd,
+    [Alias('Avd', 'Serial')]
+    [string]$Device,
     [string]$OutputDir,
     [switch]$SkipBuild,
     [switch]$ConvertOnly,
@@ -369,6 +370,86 @@ function Convert-Captures {
     }
 }
 
+# --- Device --------------------------------------------------------------------
+
+# Prints every emulator (running or not) and connected phone, numbered, and returns the emulators in that order.
+function Show-DeviceList {
+    $running = @(Get-RunningEmulators $adb)
+    $rows = @()
+    foreach ($avd in Get-Avds) {
+        $emu = $running | Where-Object { $_.Avd -eq $avd.Name } | Select-Object -First 1
+        $status = 'stopped'; $anki = '-'; $serial = $null
+        if ($emu) {
+            $serial = $emu.Serial
+            if ($emu.Booted) {
+                $status = "running ($serial)"
+                $script:device = $serial
+                $anki = if (Test-Installed $AnkiDroidId) { 'yes' } else { 'no' }
+            } else {
+                $status = "booting ($serial)"
+            }
+        }
+        $rows += [pscustomobject]@{ Name = $avd.Name; Status = $status; AnkiDroid = $anki; Android = (@($avd.Version, $avd.Image) | Where-Object { $_ }) -join ', ' }
+    }
+    # Running emulators whose AVD isn't listed (e.g. started from another SDK).
+    foreach ($emu in $running | Where-Object { $_.Avd -notin $rows.Name }) {
+        $rows += [pscustomobject]@{ Name = $emu.Serial; Status = $(if ($emu.Booted) { 'running' } else { 'booting' }); AnkiDroid = '?'; Android = '' }
+    }
+
+    Write-Host ''
+    Write-Host ('    {0,-3} {1,-22} {2,-24} {3,-10} {4}' -f '#', 'Emulator', 'Status', 'AnkiDroid', 'Android')
+    $i = 1
+    foreach ($row in $rows) {
+        $color = if ($row.AnkiDroid -eq 'yes') { 'Green' } elseif ($row.Status -eq 'stopped') { 'Gray' } else { 'White' }
+        Write-Host ('    {0,-3} {1,-22} {2,-24} {3,-10} {4}' -f $i, $row.Name, $row.Status, $row.AnkiDroid, $row.Android) -ForegroundColor $color
+        $i++
+    }
+    foreach ($phone in Get-Devices $adb | Where-Object { $_.Serial -notlike 'emulator-*' }) {
+        Write-Host ('    {0,-3} {1,-22} {2,-24} {3}' -f '-', $phone.Serial, "phone ($($phone.State))", 'not used: emulators only') -ForegroundColor DarkGray
+    }
+    if (-not $rows) { Write-Host '    No emulator. Create one in Android Studio (Device Manager).' }
+    Write-Host '    AnkiDroid: "-" when the emulator is stopped (checked once started).'
+    Write-Host ''
+    return $rows
+}
+
+# The device chosen with -Device, or asked for after the list. Returns the serial of the running, booted
+# emulator; starts it first if needed (sets $script:started).
+function Select-Device([string]$Choice) {
+    if (-not $Choice) {
+        $rows = @(Show-DeviceList)
+        if ([Console]::IsInputRedirected) { Fail 'Choose the emulator: -Device <name or serial>, from the list above.' }
+        $answer = (Read-Host 'Emulator to use (number or name, Enter to cancel)').Trim()
+        if (-not $answer) { Write-Host 'Cancelled.'; exit 1 }
+        if ($answer -match '^\d+$') {
+            $index = [int]$answer - 1
+            if ($index -lt 0 -or $index -ge $rows.Count) { Fail "No emulator number $answer in the list." }
+            $Choice = $rows[$index].Name
+        } else {
+            $Choice = $answer
+        }
+    }
+
+    $running = @(Get-RunningEmulators $adb)
+    $emu = $running | Where-Object { $_.Serial -eq $Choice -or $_.Avd -eq $Choice } | Select-Object -First 1
+    if ($emu) {
+        Write-Host "    $Choice is running ($($emu.Serial))"
+        if (-not $emu.Booted) { Wait-ForBoot $adb $emu.Serial }
+        return $emu.Serial
+    }
+    if (Get-Devices $adb | Where-Object { $_.Serial -eq $Choice }) {
+        Fail "$Choice is a phone: use an emulator, the script drives the screen and changes the selected decks."
+    }
+    if ($Choice -like 'emulator-*') { Fail "$Choice is not running: give the emulator's name to start it." }
+    if ($Choice -notin @(Get-Avds | ForEach-Object Name)) {
+        Fail "No emulator named '$Choice'. Run the script without -Device to see the list."
+    }
+    Write-Step "Starting $Choice"
+    $serial = Start-Emulator $adb $Choice
+    $script:started = $true
+    return $serial
+}
+
 # --- Main ----------------------------------------------------------------------
 
 $RawDir = Join-Path $OutputDir 'raw'
@@ -383,28 +464,11 @@ if (-not $ConvertOnly) {
 
     Write-Step 'Selecting the emulator'
     $started = $false
-    if ($Serial) {
-        if ($Serial -notlike 'emulator-*') { Fail 'Use an emulator: the script drives the screen and changes the selected decks.' }
-        if (-not (Get-Devices $adb | Where-Object { $_.Serial -eq $Serial -and $_.State -eq 'device' })) {
-            Fail "Emulator '$Serial' is not running."
-        }
-        $device = $Serial
-    } else {
-        $device = $null
-        foreach ($emu in (Get-Devices $adb | Where-Object { $_.Serial -like 'emulator-*' -and $_.State -eq 'device' })) {
-            $script:device = $emu.Serial
-            if (Test-Installed $AnkiDroidId) { $device = $emu.Serial; break }
-        }
-        if (-not $device) {
-            $device = Start-Emulator $adb $Avd
-            $started = $true
-        }
-    }
+    $device = Select-Device $Device
     $script:device = $device
-    Write-Host "    $device"
     if (-not (Test-Installed $AnkiDroidId)) {
         Fail ("AnkiDroid is not installed on $device. Install it, create a collection, enable its API " +
-              '(Settings > Advanced > Enable AnkiDroid API), or pass -Serial / -Avd for another emulator.')
+              '(Settings > Advanced > Enable AnkiDroid API), or choose another emulator.')
     }
 
     try {
