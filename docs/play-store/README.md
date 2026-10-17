@@ -13,13 +13,24 @@ Everything needed to publish Micro Review for AnkiDroid on the Play Store: the l
 The screenshots, GIFs and icon are generated **on demand only**, by a script (nothing generates them in CI or during a build):
 
 ```powershell
-.\scripts\store-assets.ps1                       # first running emulator with AnkiDroid
-.\scripts\store-assets.ps1 -Avd Pixel_9a          # starts this emulator if none is running
-.\scripts\store-assets.ps1 -SkipBuild -OutputDir C:\temp\store
-.\scripts\store-assets.ps1 -ConvertOnly            # convert the last captures again, without the emulator
+.\scripts\store-assets.ps1                         # lists the emulators and asks which one to use
+.\scripts\store-assets.ps1 -Device Pixel_9a         # this emulator, started first if it isn't running
+.\scripts\store-assets.ps1 -Device emulator-5554 -SkipBuild -OutputDir C:\temp\store
+.\scripts\store-assets.ps1 -ConvertOnly             # convert the last captures again, without the emulator
 ```
 
-Also available in VS Code: task "Android: generate store assets".
+Also available in VS Code: task "Android: generate store assets" (it asks for the emulator).
+
+Without `-Device`, the script lists every emulator created in Android Studio, running or not, with its status, whether AnkiDroid is installed (known once it runs) and its Android version, then asks for a number or a name:
+
+```
+    #   Emulator               Status                   AnkiDroid  Android
+    1   Matrix_API31           stopped                  -          Android 12 (API 31), Google Play
+    2   Matrix_API34           running (emulator-5556)  no         Android 14 (API 34), Google APIs
+    3   Pixel_9a               running (emulator-5554)  yes        Android 16 (API 36), Google Play
+```
+
+A stopped emulator is started first, and the script goes on once Android has booted, reporting the progress every 15 s. It stops with the end of the emulator's output (full output in `%TEMP%\emulator-<name>.log`) if the emulator exits while starting (crash, window closed), disappears from adb, or hasn't booted after 5 minutes. An emulator started by the script is shut down at the end, unless `-KeepEmulator`.
 
 ### Before the first run
 
