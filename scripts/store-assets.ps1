@@ -26,10 +26,12 @@
     selected in the app. Needs ffmpeg on the PATH, or Python with `pip install imageio-ffmpeg`.
 
 .PARAMETER Serial
-    Emulator to use (see `adb devices`). By default, the first running emulator with AnkiDroid installed.
+    Running emulator to use (see `adb devices`).
 
 .PARAMETER Avd
-    Emulator to start when none with AnkiDroid is running (see `emulator -list-avds`).
+    Emulator to use (see `emulator -list-avds`): the running one with this name, otherwise it is started.
+    Without -Avd and -Serial: the first running emulator with AnkiDroid, otherwise the first one listed is
+    started.
 
 .PARAMETER OutputDir
     Where to write the assets. Default: build/store-assets in the project.
@@ -49,6 +51,7 @@
     .\scripts\store-assets.ps1 -Serial emulator-5554 -SkipBuild -OutputDir C:\temp\store
     .\scripts\store-assets.ps1 -ConvertOnly
 #>
+[CmdletBinding()]   # rejects unknown (mistyped) parameters
 param(
     [string]$Serial,
     [string]$Avd,
@@ -390,12 +393,20 @@ if (-not $ConvertOnly) {
         }
         $device = $Serial
     } else {
-        $device = $null
+        # -Avd: the running emulator with that name. Otherwise the first running one with AnkiDroid.
+        $found = $null
         foreach ($emu in (Get-Devices $adb | Where-Object { $_.Serial -like 'emulator-*' -and $_.State -eq 'device' })) {
-            $script:device = $emu.Serial
-            if (Test-Installed $AnkiDroidId) { $device = $emu.Serial; break }
+            $script:device = $emu.Serial   # for Adb and Test-Installed
+            if ($Avd) {
+                $name = Adb emu avd name | Select-Object -First 1
+                if ($name -and $name.Trim() -eq $Avd) { $found = $emu.Serial; break }
+            } elseif (Test-Installed $AnkiDroidId) {
+                $found = $emu.Serial; break
+            }
         }
-        if (-not $device) {
+        if ($found) {
+            $device = $found
+        } else {
             $device = Start-Emulator $adb $Avd
             $started = $true
         }
