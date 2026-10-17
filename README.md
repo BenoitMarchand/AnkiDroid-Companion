@@ -2,7 +2,9 @@
 
 Micro Review for AnkiDroid is an extension app for the AnkiDroid flashcard app. It lets you review your cards a few seconds at a time, from a notification, your lock screen or a home screen widget, without opening AnkiDroid.
 
-![](.github/output.gif)
+| Lock screen | Notification | Widget |
+|:---:|:---:|:---:|
+| ![The card on the lock screen](.github/lockscreen.gif) | ![Answering from the notification](.github/notification.gif) | ![Answering from the home screen widget](.github/widget.gif) |
 
 
 ## Features

@@ -45,6 +45,7 @@ A stopped emulator is started first, and the script goes on once Android has boo
 2. Runs `StoreAssetsSetup` (in `app/src/androidTest`, skipped in the device tests and in CI): empties and fills again the **"World capitals"** demo deck in AnkiDroid, so its 12 cards are new, selects it in the app, and renders the icon.
 3. Sets the card wallpaper on the lock screen if needed (reboots the emulator if Android didn't start it again after the reinstall), adds the Card widget to the home screen if needed (resized to the full width), and tidies the screen: status bar demo mode (9:30, full battery), system notifications snoozed for an hour, touches shown, screen kept on.
 4. Takes the screenshots, records the three flows, converts them, and puts the emulator's settings back.
+5. Copies the three GIFs to `.github/`, where the project README shows them (`-NoReadmeGifs` to skip it). Commit them to update the README.
 
 Each run answers about 4 demo cards. The demo deck counts toward AnkiDroid's daily limit of new cards (20 by default): after about 5 runs on the same day, raise the deck's limit in AnkiDroid or wait for the next day.
 

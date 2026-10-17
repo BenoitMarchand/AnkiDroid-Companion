@@ -15,9 +15,11 @@
        (status bar demo mode, system notifications snoozed, screen kept on, touches shown).
     4. Takes the screenshots, records the three flows (each one answers cards of the demo deck) and converts
        them with ffmpeg.
+    5. Copies the three GIFs to .github/ in the project, where the README shows them (skipped with -NoReadmeGifs).
 
     Output (default build/store-assets):
-      gif/          lockscreen.gif, notification.gif, widget.gif (360 px wide, for the README or a website)
+      gif/          lockscreen.gif, notification.gif, widget.gif (360 px wide, for the README or a website;
+                    also copied to .github/ for the README)
       screenshots/  PNGs cropped to the Play Store's 2:1 maximum ratio
       raw/          full-size PNGs and the recordings
       icon-512.png  the listing icon
@@ -40,6 +42,9 @@
 .PARAMETER ConvertOnly
     Don't use the emulator: only convert the captures already in OutputDir\raw again.
 
+.PARAMETER NoReadmeGifs
+    Don't copy the GIFs to .github/ (the README's GIFs stay as they are).
+
 .PARAMETER KeepEmulator
     Leave the emulator started by the script running at the end.
 
@@ -56,6 +61,7 @@ param(
     [string]$OutputDir,
     [switch]$SkipBuild,
     [switch]$ConvertOnly,
+    [switch]$NoReadmeGifs,
     [switch]$KeepEmulator
 )
 
@@ -585,6 +591,12 @@ if (-not $ConvertOnly) {
 
 Write-Step 'Converting'
 Convert-Captures
+
+if (-not $NoReadmeGifs) {
+    Write-Step 'Copying the GIFs to .github/ for the README'
+    Copy-Item (Join-Path $GifDir '*.gif') (Join-Path $ProjectRoot '.github') -Force
+    Get-ChildItem (Join-Path $GifDir '*.gif') | ForEach-Object { Write-Host "    .github/$($_.Name)" }
+}
 
 Write-Host ''
 Write-Host "Store assets written to $OutputDir" -ForegroundColor Green
