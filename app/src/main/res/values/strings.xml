@@ -88,7 +88,11 @@
     <string name="review_mode_needs_overlay">Android only lets the app open the review screen with the \"Display over other apps\" permission. Until it is allowed, the notification is used.</string>
     <string name="review_mode_allow_overlay">Allow</string>
     <string name="review_mode_needs_wallpaper">Works once the card wallpaper is set on the lock screen. Until then, the notification is used.</string>
-    <string name="wallpaper_settings_title">Lock screen style</string>
+    <string name="style_settings_title">Style</string>
+    <string name="style_target_lock_screen">Lock screen</string>
+    <string name="style_target_widget">Widget</string>
+    <string name="widget_background_see_through">Wallpaper (see-through)</string>
+    <string name="widget_background_see_through_summary">The home screen wallpaper shows through the widget. It can be darkened or lightened, but not blurred: the app can\'t read the wallpaper picture.</string>
     <string name="wallpaper_status_active">The card wallpaper is set on the lock screen.</string>
     <string name="wallpaper_status_missing">The card wallpaper is not set on the lock screen</string>
     <string name="back">Back</string>

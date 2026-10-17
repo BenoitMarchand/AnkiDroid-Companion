@@ -40,6 +40,17 @@ enum class PictureFilter {
         /** Blur radius, in pixels of the scaled down copy, for an intensity in percent. */
         fun blurRadius(intensity: Int): Int =
             intensity.coerceIn(0, MAX_INTENSITY) * MAX_BLUR_RADIUS / MAX_INTENSITY
+
+        /**
+         * The filters a style can use. See-through (widget over the home screen wallpaper), only the fade: the app
+         * can't read the wallpaper to blur it. On the widget, none drawn around the text (gradient band, text panel):
+         * they are placed for the lock screen layout, and the widget's texts fill it.
+         */
+        fun available(widget: Boolean, seeThrough: Boolean): List<PictureFilter> = when {
+            seeThrough -> listOf(DARKEN, NONE)
+            widget -> listOf(DARKEN, BLUR, NONE)
+            else -> entries
+        }
     }
 }
 

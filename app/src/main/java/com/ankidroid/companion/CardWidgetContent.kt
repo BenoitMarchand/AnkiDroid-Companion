@@ -12,6 +12,26 @@ object CardWidgetContent {
     /** Without a tap for this long, the widget goes back to "Start review". */
     const val TIMEOUT_MS = 2 * 60 * 1000L
 
+    /**
+     * At most this many pixels in the widget's background bitmap: it is sent to the launcher with the widget, and
+     * too large a widget update is refused. Bigger widgets get a scaled down bitmap, stretched by the launcher.
+     */
+    const val MAX_BACKGROUND_PIXELS = 200_000
+
+    /** Used until the launcher tells the widget's size: its minimum size. */
+    const val DEFAULT_WIDTH_DP = 250
+    const val DEFAULT_HEIGHT_DP = 140
+
+    /** Size in pixels of the background bitmap of a widget of [widthDp] × [heightDp], and its scale (≤ 1). */
+    data class BackgroundSize(val width: Int, val height: Int, val scale: Float)
+
+    fun backgroundSize(widthDp: Int, heightDp: Int, density: Float): BackgroundSize {
+        val width = (if (widthDp > 0) widthDp else DEFAULT_WIDTH_DP) * density
+        val height = (if (heightDp > 0) heightDp else DEFAULT_HEIGHT_DP) * density
+        val scale = minOf(1f, kotlin.math.sqrt(MAX_BACKGROUND_PIXELS / (width * height)))
+        return BackgroundSize((width * scale).toInt().coerceAtLeast(1), (height * scale).toInt().coerceAtLeast(1), scale)
+    }
+
     enum class Kind {
         /** No deck selected: reviewing hasn't started. */
         NOT_STARTED,

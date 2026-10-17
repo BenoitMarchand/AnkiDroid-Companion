@@ -64,4 +64,25 @@ class CardWidgetContentTest {
 
     private fun kind(started: Boolean, hasCard: Boolean, reviewing: Boolean, answerRevealed: Boolean) =
         CardWidgetContent.kind(started, hasCard, reviewing, answerRevealed)
+
+    @Test
+    fun backgroundSize_smallWidgetKeepsItsSize() {
+        val size = CardWidgetContent.backgroundSize(widthDp = 200, heightDp = 100, density = 2f)
+        assertEquals(CardWidgetContent.BackgroundSize(400, 200, 1f), size)
+    }
+
+    @Test
+    fun backgroundSize_largeWidgetIsScaledDownKeepingItsShape() {
+        val size = CardWidgetContent.backgroundSize(widthDp = 400, heightDp = 300, density = 3f)
+        assertTrue(size.width * size.height <= CardWidgetContent.MAX_BACKGROUND_PIXELS)
+        assertTrue(size.scale < 1f)
+        assertEquals(4f / 3, size.width.toFloat() / size.height, 0.01f)
+    }
+
+    @Test
+    fun backgroundSize_unknownSizeUsesTheMinimum() {
+        val size = CardWidgetContent.backgroundSize(widthDp = 0, heightDp = 0, density = 1f)
+        assertEquals(CardWidgetContent.DEFAULT_WIDTH_DP, size.width)
+        assertEquals(CardWidgetContent.DEFAULT_HEIGHT_DP, size.height)
+    }
 }

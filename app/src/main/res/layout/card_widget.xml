@@ -1,115 +1,129 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Home screen card widget (StandardCardWidget): due count and "Start review"; then deck, question and
+<!-- Home screen card widget (StandardCardWidget), over its background: due count and "Start review"; then deck, question and
      "Show answer"; once revealed, the answer and the answer buttons (only those the card has).
      The texts share the free height and their size adapts to it; the buttons stay at the bottom. -->
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@android:id/background"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="@drawable/widget_background"
-    android:orientation="vertical"
-    android:padding="12dp">
+    android:layout_height="match_parent">
 
-    <TextView
-        android:id="@+id/widgetDeck"
+    <!-- The widget style's background (WallpaperStyle, target WIDGET), drawn as a bitmap; the system colors until
+         the style is changed. -->
+    <ImageView
+        android:id="@+id/widgetBackground"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:ellipsize="end"
-        android:maxLines="1"
-        android:textColor="@color/secondaryText"
-        android:textSize="12sp" />
-
-    <TextView
-        android:id="@+id/widgetQuestion"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:autoSizeMaxTextSize="32sp"
-        android:autoSizeMinTextSize="12sp"
-        android:autoSizeTextType="uniform"
-        android:ellipsize="end"
-        android:gravity="center"
-        android:maxLines="8"
-        android:paddingVertical="4dp"
-        android:textColor="@color/primaryText"
-        android:textStyle="bold" />
-
-    <FrameLayout
-        android:id="@+id/widgetDivider"
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:background="@color/notification_divider"
-        android:visibility="gone" />
-
-    <TextView
-        android:id="@+id/widgetAnswer"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:autoSizeMaxTextSize="28sp"
-        android:autoSizeMinTextSize="12sp"
-        android:autoSizeTextType="uniform"
-        android:ellipsize="end"
-        android:gravity="center"
-        android:maxLines="8"
-        android:paddingVertical="4dp"
-        android:textColor="@color/primaryText"
-        android:visibility="gone" />
-
-    <Button
-        android:id="@+id/widgetStart"
-        style="@style/NotificationAnswerButton"
-        android:layout_width="match_parent"
-        android:layout_weight="0"
-        android:background="@drawable/bg_pill_show_answer"
-        android:text="@string/widget_start"
-        android:textColor="@color/show_answer_button_text"
-        android:visibility="gone" />
-
-    <Button
-        android:id="@+id/widgetShowAnswer"
-        style="@style/NotificationAnswerButton"
-        android:layout_width="match_parent"
-        android:layout_weight="0"
-        android:background="@drawable/bg_pill_show_answer"
-        android:text="@string/show_answer"
-        android:textColor="@color/show_answer_button_text"
-        android:visibility="gone" />
+        android:layout_height="match_parent"
+        android:importantForAccessibility="no"
+        android:scaleType="fitXY"
+        android:src="@drawable/widget_background" />
 
     <LinearLayout
-        android:id="@+id/widgetAnswerButtons"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:baselineAligned="false"
-        android:orientation="horizontal"
-        android:visibility="gone">
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:padding="12dp">
+
+        <TextView
+            android:id="@+id/widgetDeck"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="@color/secondaryText"
+            android:textSize="12sp" />
+
+        <TextView
+            android:id="@+id/widgetQuestion"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:autoSizeMaxTextSize="32sp"
+            android:autoSizeMinTextSize="12sp"
+            android:autoSizeTextType="uniform"
+            android:ellipsize="end"
+            android:gravity="center"
+            android:maxLines="8"
+            android:paddingVertical="4dp"
+            android:textColor="@color/primaryText"
+            android:textStyle="bold" />
+
+        <FrameLayout
+            android:id="@+id/widgetDivider"
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@color/notification_divider"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/widgetAnswer"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:autoSizeMaxTextSize="28sp"
+            android:autoSizeMinTextSize="12sp"
+            android:autoSizeTextType="uniform"
+            android:ellipsize="end"
+            android:gravity="center"
+            android:maxLines="8"
+            android:paddingVertical="4dp"
+            android:textColor="@color/primaryText"
+            android:visibility="gone" />
 
         <Button
-            android:id="@+id/widgetButton1"
-            style="@style/WidgetAnswerButton"
-            android:background="@drawable/bg_pill_again"
-            android:text="@string/again"
-            android:textColor="@color/again_button_text" />
+            android:id="@+id/widgetStart"
+            style="@style/NotificationAnswerButton"
+            android:layout_width="match_parent"
+            android:layout_weight="0"
+            android:background="@drawable/bg_pill_show_answer"
+            android:text="@string/widget_start"
+            android:textColor="@color/show_answer_button_text"
+            android:visibility="gone" />
 
         <Button
-            android:id="@+id/widgetButton2"
-            style="@style/WidgetAnswerButton"
-            android:background="@drawable/bg_pill_hard"
-            android:text="@string/hard"
-            android:textColor="@color/hard_button_text" />
+            android:id="@+id/widgetShowAnswer"
+            style="@style/NotificationAnswerButton"
+            android:layout_width="match_parent"
+            android:layout_weight="0"
+            android:background="@drawable/bg_pill_show_answer"
+            android:text="@string/show_answer"
+            android:textColor="@color/show_answer_button_text"
+            android:visibility="gone" />
 
-        <Button
-            android:id="@+id/widgetButton3"
-            style="@style/WidgetAnswerButton"
-            android:background="@drawable/bg_pill_good"
-            android:text="@string/good"
-            android:textColor="@color/good_button_text" />
+        <LinearLayout
+            android:id="@+id/widgetAnswerButtons"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:baselineAligned="false"
+            android:orientation="horizontal"
+            android:visibility="gone">
 
-        <Button
-            android:id="@+id/widgetButton4"
-            style="@style/WidgetAnswerButton"
-            android:background="@drawable/bg_pill_easy"
-            android:text="@string/easy"
-            android:textColor="@color/easy_button_text" />
+            <Button
+                android:id="@+id/widgetButton1"
+                style="@style/WidgetAnswerButton"
+                android:background="@drawable/bg_pill_again"
+                android:text="@string/again"
+                android:textColor="@color/again_button_text" />
+
+            <Button
+                android:id="@+id/widgetButton2"
+                style="@style/WidgetAnswerButton"
+                android:background="@drawable/bg_pill_hard"
+                android:text="@string/hard"
+                android:textColor="@color/hard_button_text" />
+
+            <Button
+                android:id="@+id/widgetButton3"
+                style="@style/WidgetAnswerButton"
+                android:background="@drawable/bg_pill_good"
+                android:text="@string/good"
+                android:textColor="@color/good_button_text" />
+
+            <Button
+                android:id="@+id/widgetButton4"
+                style="@style/WidgetAnswerButton"
+                android:background="@drawable/bg_pill_easy"
+                android:text="@string/easy"
+                android:textColor="@color/easy_button_text" />
+        </LinearLayout>
     </LinearLayout>
-</LinearLayout>
+</FrameLayout>

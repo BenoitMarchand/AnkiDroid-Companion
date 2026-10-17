@@ -34,6 +34,7 @@ Micro Review for AnkiDroid is an extension app for the AnkiDroid flashcard app. 
 ### Look and setup
 
 - **Lock screen style**: choose a background color or image, the text color and the text size, with a live preview. On a picture, choose how it is filtered so the text stays readable (darken, lighten, blur, gradient behind the text, text panel or none) and how strongly.
+- **Widget style**: the home screen widget has its own style, edited the same way: a background color, a picture (darkened, lightened or blurred), or see-through, showing the home screen wallpaper (darkened or lightened), and the text color.
 
 - **Setup checklist**: the main screen lists anything still missing (notifications, lock screen wallpaper, background activity restricted by the battery settings) and how to fix it.
 
