@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- PoC card widget (issue #60): deck, question, "Show answer"; once revealed, the answer and the answer buttons.
+     The last line tells whether the last tap reached the app, and if the phone was locked. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/poc_widget_background"
+    android:orientation="vertical"
+    android:padding="12dp">
+
+    <TextView
+        android:id="@+id/pocDeck"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:textColor="#99000000"
+        android:textSize="12sp" />
+
+    <TextView
+        android:id="@+id/pocQuestion"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:ellipsize="end"
+        android:maxLines="4"
+        android:paddingVertical="4dp"
+        android:textColor="@color/primaryText"
+        android:textSize="16sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/pocAnswer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:ellipsize="end"
+        android:maxLines="4"
+        android:paddingBottom="4dp"
+        android:textColor="@color/primaryText"
+        android:textSize="14sp"
+        android:visibility="gone" />
+
+    <LinearLayout
+        android:id="@+id/pocQuestionButtons"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/pocShowAnswer"
+            style="@style/NotificationAnswerButton"
+            android:background="@drawable/bg_pill_show_answer"
+            android:textColor="@color/show_answer_button_text"
+            android:text="@string/show_answer" />
+
+        <Button
+            android:id="@+id/pocRefresh"
+            style="@style/NotificationAnswerButton"
+            android:background="@drawable/bg_pill_show_answer"
+            android:textColor="@color/show_answer_button_text"
+            android:text="@string/poc_widget_refresh" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/pocAnswerButtons"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:visibility="gone">
+
+        <Button
+            android:id="@+id/pocButton1"
+            style="@style/NotificationAnswerButton"
+            android:background="@drawable/bg_pill_again"
+            android:textColor="@color/again_button_text"
+            android:text="@string/again" />
+
+        <Button
+            android:id="@+id/pocButton2"
+            style="@style/NotificationAnswerButton"
+            android:background="@drawable/bg_pill_hard"
+            android:textColor="@color/hard_button_text"
+            android:text="@string/hard" />
+
+        <Button
+            android:id="@+id/pocButton3"
+            style="@style/NotificationAnswerButton"
+            android:background="@drawable/bg_pill_good"
+            android:textColor="@color/good_button_text"
+            android:text="@string/good" />
+
+        <Button
+            android:id="@+id/pocButton4"
+            style="@style/NotificationAnswerButton"
+            android:background="@drawable/bg_pill_easy"
+            android:textColor="@color/easy_button_text"
+            android:text="@string/easy" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/pocStatus"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:maxLines="2"
+        android:paddingTop="4dp"
+        android:textColor="#99000000"
+        android:textSize="11sp" />
+</LinearLayout>

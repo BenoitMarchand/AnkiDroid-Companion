@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- PoC card widget (issue #60): remove with PocCardWidget.kt. -->
+<resources>
+    <string name="poc_widget_label">Card (test)</string>
+    <string name="poc_widget_description">Test widget: the current card, to check whether its buttons work on the lock screen.</string>
+    <string name="poc_widget_refresh">Refresh</string>
+    <string name="poc_widget_no_tap">No tap yet</string>
+    <string name="poc_widget_last_tap">Last tap %1$s at %2$s, phone %3$s</string>
+    <string name="poc_widget_locked">locked</string>
+    <string name="poc_widget_unlocked">unlocked</string>
+</resources>
